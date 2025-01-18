@@ -1,4 +1,4 @@
-package com.doctorapp.case_tracker;
+package com.doctorapp.medicaltracker;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
