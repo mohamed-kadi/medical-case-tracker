@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.doctorapp.medicaltracker.exception.InvalidCaseStatusException;
+import com.doctorapp.medicaltracker.exception.MedicalCaseNotFoundException;
 import com.doctorapp.medicaltracker.exception.PatientNotFoundException;
 
 @RestControllerAdvice   // Marks this as a Rest Controller Advice
@@ -42,6 +44,30 @@ public class GlobalExceptionHandler {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    /******************** */
+
+    @ExceptionHandler(MedicalCaseNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleMedicalCaseNotFound(MedicalCaseNotFoundException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(InvalidCaseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidCaseStatus(InvalidCaseStatusException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    // This can handle cases where status transition is invalid
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
 }

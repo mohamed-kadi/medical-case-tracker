@@ -2,6 +2,7 @@ package com.doctorapp.medicaltracker.controller;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.doctorapp.medicaltracker.model.Patient;
+import com.doctorapp.medicaltracker.model.PatientStatus;
 import com.doctorapp.medicaltracker.service.PatientService;
 
 import jakarta.validation.Valid;
@@ -59,10 +61,18 @@ public class PatientController {
 
     // PUT /api/patients/{id} - Update existing patient
     @PutMapping("/{id}")
-        public ResponseEntity<Patient> updatePatient(@PathVariable Long id, @Valid @RequestBody Patient patientDetails) {
+    public ResponseEntity<Patient> updatePatient(@PathVariable Long id, @Valid @RequestBody Patient patientDetails) {
         Patient updatedPatient = patientService.updatePatient(id, patientDetails);
         return ResponseEntity.ok(updatedPatient);
     }
+    
+    @PatchMapping("/{id}/status")
+public ResponseEntity<Patient> updatePatientStatus(
+        @PathVariable Long id,
+        @RequestBody PatientStatus status) {
+    Patient updatedPatient = patientService.updatePatientStatus(id, status);
+    return ResponseEntity.ok(updatedPatient);
+}
 
     // DELETE /api/patients/{id} - Delete patient
     @DeleteMapping("/{id}")
