@@ -26,7 +26,8 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
 
     private final MedicalCaseRepository medicalCaseRepository;
     private final PatientService patientService;
-
+    
+    
     @Override
     @Transactional
     public MedicalCase createCase(Long patientId, MedicalCase medicalCase) {
@@ -215,6 +216,13 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
             throw new RuntimeException("Failed to delete medical case", e);
         }
    
+    }
+
+    @Override
+    public MedicalCase getMedicalCase(Long caseId) {
+        return medicalCaseRepository.findById(caseId)
+                .orElseThrow(() -> new RuntimeException("Medical Case not found with id: " + caseId));
+       
     }
 
     

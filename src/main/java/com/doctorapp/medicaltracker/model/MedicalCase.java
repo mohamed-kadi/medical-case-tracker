@@ -1,8 +1,11 @@
 package com.doctorapp.medicaltracker.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -41,6 +44,10 @@ public class MedicalCase {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private CaseStatus status = CaseStatus.OPEN;
+
+    @JsonManagedReference
+    @OneToMany(mappedBy = "medicalCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MedicalImage> images = new ArrayList<>();;
 
     @Column(name="created_at")
     private LocalDateTime createdAt;

@@ -21,4 +21,6 @@ public interface MedicalCaseService {
 
     MedicalCase updateCaseStatus(Long id, CaseStatus status);
 
+    MedicalCase getMedicalCase(Long caseId);
+
 }
