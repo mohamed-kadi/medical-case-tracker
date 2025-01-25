@@ -20,8 +20,10 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/images")
 @RequiredArgsConstructor
 public class MedicalImageController {
-
+    
+    
     private final MedicalImageService medicalImageService;
+    
 
     @GetMapping("/{id}")
     public ResponseEntity<MedicalImage> getImageMetadata(@PathVariable Long id) {

@@ -10,6 +10,8 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import com.doctorapp.medicaltracker.model.ImageCategory;
 import com.doctorapp.medicaltracker.model.MedicalImage;
@@ -57,6 +59,7 @@ public class MedicalImageServiceImpl implements MedicalImageService {
         image.setDescription(description);
         image.setUploadedBy(uploadedBy);
         image.setMedicalCase(caseService.getMedicalCase(caseId));
+        image.setMimeType(file.getContentType());
         return imageRepository.save(image);
     } catch (IOException ex) {
         throw new RuntimeException("Failed to store image", ex);

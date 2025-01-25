@@ -43,7 +43,7 @@ public class MedicalImage {
     private Long size;
     
     @JsonBackReference
-    @ManyToMany(fetch = FetchType.LAZY)  
+    @ManyToOne(fetch = FetchType.LAZY)  
     @JoinColumn(name = "case_id", nullable = false)
     private MedicalCase medicalCase;
 

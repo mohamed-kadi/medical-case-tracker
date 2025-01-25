@@ -4,7 +4,9 @@ import java.io.IOException;
 //import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
 
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -18,9 +20,12 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import com.doctorapp.medicaltracker.exception.InvalidCaseStatusException;
 import com.doctorapp.medicaltracker.exception.MedicalCaseNotFoundException;
 import com.doctorapp.medicaltracker.exception.PatientNotFoundException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
 @RestControllerAdvice   // Marks this as a Rest Controller Advice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // handle patient not found exception
     @ExceptionHandler(PatientNotFoundException.class)
@@ -118,5 +123,23 @@ public class GlobalExceptionHandler {
         errorResponse.put("status", HttpStatus.BAD_REQUEST.toString());
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
+
+
+    
+    @ExceptionHandler(InvalidFormatException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidFormatException(InvalidFormatException ex) {
+        logger.error("InvalidFormatException occurred: ", ex); // Log the exception
+
+        Map<String, String> errorResponse = new HashMap<>();
+
+        String fieldName = ex.getPath().get(0).getFieldName();
+        String acceptedValues = ex.getTargetType().getEnumConstants().toString();
+        String message = "Invalid value for field '" + fieldName + "'. Accepted values are: " + acceptedValues;
+
+        errorResponse.put("message", message);
+        errorResponse.put("status", HttpStatus.BAD_REQUEST.toString());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
 
 }
