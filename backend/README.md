@@ -2,14 +2,25 @@
 
 Spring Boot API for Medical Case Tracker.
 
+## Environment Setup (Recommended)
+
+From repository root:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Update `backend/.env` with local values (especially `JWT_SECRET`).
+
+`backend/.env` is intentionally ignored by git and must never be committed.
+
 ## Run
 
 From repository root:
 
 ```bash
-cd backend
-export JWT_SECRET="$(openssl rand -base64 64)"
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+set -a; source backend/.env; set +a
+cd backend && ./mvnw spring-boot:run
 ```
 
 ## Required Environment Variables
@@ -26,6 +37,11 @@ If `medicaltracker` does not exist:
 ```bash
 psql -h localhost -U postgres -d postgres -c "CREATE DATABASE medicaltracker OWNER postgres;"
 ```
+
+## CI/Deploy Secrets
+
+- Local development: keep secrets in `backend/.env` (gitignored).
+- GitHub Actions/deploy: configure repository/environment secrets in GitHub, do not store secrets in repo files.
 
 ## Build and Test
 

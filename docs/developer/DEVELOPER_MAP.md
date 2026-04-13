@@ -37,6 +37,13 @@ Medical Case Tracker is an enterprise application for patient management, case t
 - Frontend service tests: `frontend/src/app/core/services/*.spec.ts`
 - Frontend interceptor tests: `frontend/src/app/core/interceptors/*.spec.ts`
 
+## Environment and Secrets
+
+- Example backend env template: `backend/.env.example`
+- Local secrets file: `backend/.env` (gitignored, never committed)
+- Runtime configuration still resolves via Spring environment variables from `application*.properties`
+- CI/deploy secrets must be stored in GitHub Secrets, not repo files
+
 ## Branching and Delivery Flow
 
 1. Create a feature branch from `main`.

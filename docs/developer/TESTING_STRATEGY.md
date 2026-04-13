@@ -58,6 +58,12 @@
 - `test`: H2 in-memory for repeatable CI/local tests
 - `prod`: externalized configuration only
 
+Environment source policy:
+
+- Local: `backend/.env` loaded into shell before starting backend
+- Template: `backend/.env.example` committed for onboarding
+- CI/Deploy: secrets from GitHub Secrets (never committed)
+
 ## CI Test Command Set
 
 - `cd backend && ./mvnw -q -DskipTests compile`

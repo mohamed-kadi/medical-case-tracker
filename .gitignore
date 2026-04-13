@@ -42,3 +42,15 @@ application-local.properties
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Local tooling
+.tools/
+
+# Environment files (never commit real secrets)
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Additional local IDE/runtime artifacts
+.metals/

@@ -39,12 +39,20 @@ Enterprise-oriented platform for patient records, medical cases, and medical ima
 
 Flyway is not required for the current phase.
 
+0. Prepare backend environment (once):
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Then edit `backend/.env` and set a strong `JWT_SECRET`.
+
 1. Start backend API (dev profile):
 
 ```bash
-export JWT_SECRET="$(openssl rand -base64 64)"
 psql -h localhost -U postgres -d postgres -c "CREATE DATABASE medicaltracker OWNER postgres;" # run once if missing
-cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+set -a; source backend/.env; set +a
+cd backend && ./mvnw spring-boot:run
 ```
 
 2. Start frontend (from repository root):
@@ -71,6 +79,12 @@ If you use a system-wide Node installation (Node 20+), `PATH=...` is not needed.
 - `dev` profile: local PostgreSQL defaults from env or fallback values (`postgres` / `postgres`)
 - `test` profile: in-memory H2 for repeatable tests
 - `prod` profile: strict externalized DB configuration
+
+Secrets policy:
+
+- Commit only `.env.example` templates.
+- Keep real `.env` files local and gitignored.
+- Store CI/deploy secrets in GitHub Secrets.
 
 Main config files:
 
