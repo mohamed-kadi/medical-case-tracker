@@ -1,163 +1,137 @@
-# 🏥 Medical Case Tracker
+# Medical Case Tracker
 
-A sophisticated Spring Boot application designed to help medical professionals manage patient cases and track treatment progress through image documentation. This project demonstrates enterprise-level software architecture, secure handling of sensitive medical data, and modern web application development practices.
+Enterprise-oriented platform for patient records, medical cases, and medical image workflows.
 
-## 🌟 Key Features
+## Repository Structure
 
-### Core Functionality
-- **Patient Management**
-  - Create, view, update, and delete patient records
-  - Comprehensive patient history tracking
-  - Secure storage of patient information
+- `backend/` - Spring Boot API (Maven project root)
+- `frontend/` - Angular application
+- `docs/` - developer and user documentation
 
-- **Image Management**
-  - Upload and store medical images
-  - Before/after treatment comparisons
-  - Image categorization and tagging
-  - Secure image storage with backup
+## Current Scope
 
-- **Progress Tracking**
-  - Visual timeline of treatment progress
-  - Milestone tracking and documentation
-  - Treatment outcome analysis
+- Spring Boot backend API with JWT authentication and role-based access controls
+- Angular frontend shell (login, register, protected dashboard)
+- English/French localization across backend responses and frontend UI
+- Developer and user documentation maps in `docs/`
+- Frontend-first delivery while Flyway migrations are intentionally deferred
 
-- **Appointment System**
-  - Schedule and manage appointments
-  - Automated reminders (planned)
-  - Calendar integration
-
-### Technical Features
-- Secure authentication and authorization
-- Role-based access control (Admin, Doctor, Staff)
-- HIPAA-compliant data handling practices
-- Audit logging for sensitive operations
-- RESTful API architecture
-- Responsive web design
-
-## 🔧 Technology Stack
+## Technology Stack
 
 ### Backend
+
 - Java 17
-- Spring Boot 3.x
-- Spring Security for authentication
-- Spring Data JPA for data persistence
-- PostgreSQL database
-- Maven for dependency management
+- Spring Boot 3.4.x
+- Spring Security + JWT
+- Spring Data JPA
+- PostgreSQL (dev/prod), H2 (test profile)
+- Maven Wrapper (`backend/mvnw`)
 
 ### Frontend
-- Thymeleaf template engine
-- Bootstrap 5 for responsive design
-- JavaScript for dynamic interactions
-- HTML5 & CSS3
 
-### Testing
-- JUnit 5 for unit testing
-- Mockito for mocking
-- Spring Boot Test for integration testing
+- Angular 19 + TypeScript (standalone components)
+- Angular Router + route guard
+- HTTP interceptors for JWT and `Accept-Language`
+- Reactive Forms
+- Karma/Jasmine unit tests
 
-## 🚀 Getting Started
+## Frontend-First Quick Start
 
-### Prerequisites
-- JDK 17 or higher
-- Maven 3.8+
-- PostgreSQL 14+
-- Git
+Flyway is not required for the current phase.
 
-### Installation
+1. Start backend API (dev profile):
 
-1. Clone the repository
 ```bash
-git clone https://github.com/mohamed-kadi/medical-case-tracker.git
-cd medical-case-tracker
+export JWT_SECRET="$(openssl rand -base64 64)"
+psql -h localhost -U postgres -d postgres -c "CREATE DATABASE medicaltracker OWNER postgres;" # run once if missing
+cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-2. Configure database properties in `src/main/resources/application.properties`:
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/medical_tracker
-spring.datasource.username=medical_user
-spring.datasource.password=user1234
-```
+2. Start frontend (from repository root):
 
-3. Build and run the application
 ```bash
-mvn clean install
-mvn spring-boot:run
+PATH="$(pwd)/.tools/node/bin:$PATH" && cd frontend && npm run start
 ```
 
-4. Access the application at `http://localhost:8080`
+If you use a system-wide Node installation (Node 20+), `PATH=...` is not needed.
 
-## 🏗️ Project Structure
-```
-medical-case-tracker/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/yourname/medicaltracker/
-│   │   │       ├── config/
-│   │   │       ├── controller/
-│   │   │       ├── model/
-│   │   │       ├── repository/
-│   │   │       ├── service/
-│   │   │       └── security/
-│   │   └── resources/
-│   │       ├── static/
-│   │       ├── templates/
-│   │       └── application.properties
-│   └── test/
-└── pom.xml
-```
+## Localization
 
-## 🔄 API Endpoints
+- Supported languages: English (`en`) and French (`fr`)
+- Frontend language switcher persists the chosen language
+- Backend localization is driven by `Accept-Language` header
+- Backend bundles:
+  - `backend/src/main/resources/i18n/messages_en.properties`
+  - `backend/src/main/resources/i18n/messages_fr.properties`
+- Frontend dictionary:
+  - `frontend/src/app/core/services/i18n.service.ts`
 
-### Patient Management
-- `GET /api/patients` - List all patients
-- `GET /api/patients/{id}` - Get patient details
-- `POST /api/patients` - Create new patient
-- `PUT /api/patients/{id}` - Update patient
-- `DELETE /api/patients/{id}` - Delete patient
-- `Get /api/patients/search?lastName={lastName}` - Search by lastname
-- `Get /api/patients/check-email` - Check email availability
+## Profiles and Runtime Configuration
 
-### Case Management
-- `GET /api/cases` - List all cases
-- `POST /api/cases` - Create new case
-- `PUT /api/cases/{id}` - Update case
-- `POST /api/cases/{id}/images` - Upload case images
+- `dev` profile: local PostgreSQL defaults from env or fallback values (`postgres` / `postgres`)
+- `test` profile: in-memory H2 for repeatable tests
+- `prod` profile: strict externalized DB configuration
 
+Main config files:
 
-## 🔒 Security
+- `backend/src/main/resources/application.properties`
+- `backend/src/main/resources/application-dev.properties`
+- `backend/src/main/resources/application-prod.properties`
+- `backend/src/test/resources/application-test.properties`
 
-- JWT-based authentication
-- Role-based access control
-- Password encryption
-- Secure session management
-- CORS configuration
-- XSS protection
+## Build and Test
 
-## 🧪 Testing
+Backend:
 
-Run tests using:
 ```bash
-mvn test
+cd backend && ./mvnw -q -DskipTests compile
+cd backend && ./mvnw -q test
 ```
 
-## 📊 Project Status
-🚧 Under Development
+Frontend:
 
-### Upcoming Features
-- Medical case management
-- Image upload and storage
-- Case process tracking
-- Treatment timeline
-- Appointment scheduling
-- Email notifications
-- Patient portal
-- Advanced image analysis
-- Treatment plan management
-- Reporting and analytics
+```bash
+PATH="$(pwd)/.tools/node/bin:$PATH" && cd frontend && npm run build -- --configuration development
+PATH="$(pwd)/.tools/node/bin:$PATH" && cd frontend && npm run test -- --watch=false --browsers=ChromeHeadlessCI
+```
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Documentation Map
 
-## 🤝 Contributing
-While this is primarily a portfolio project, suggestions and feedback are welcome. Please open an issue to discuss potential changes.
+- Central hub: `docs/README.md`
+- Developer map: `docs/developer/DEVELOPER_MAP.md`
+- Phase plan: `docs/developer/PHASE_PLAN.md`
+- Testing strategy: `docs/developer/TESTING_STRATEGY.md`
+- Documentation checklist: `docs/developer/DOCUMENTATION_CHECKLIST.md`
+- User guide (EN): `docs/user/USER_GUIDE_EN.md`
+- User guide (FR): `docs/user/GUIDE_UTILISATEUR_FR.md`
+- Support map: `docs/user/SUPPORT_MAP.md`
+
+## Core API Endpoints
+
+- Auth:
+  - `POST /api/auth/login`
+  - `POST /api/auth/register`
+- Patients:
+  - `GET /api/patients`
+  - `GET /api/patients/{id}`
+  - `POST /api/patients`
+  - `PUT /api/patients/{id}`
+  - `PATCH /api/patients/{id}/status`
+  - `DELETE /api/patients/{id}`
+- Cases:
+  - `POST /api/cases/patients/{patientId}`
+  - `GET /api/cases/{id}`
+  - `GET /api/cases/patients/{patientId}`
+  - `PUT /api/cases/{id}`
+  - `PATCH /api/cases/{id}/status`
+  - `DELETE /api/cases/{id}`
+- Images:
+  - `POST /api/images/upload`
+  - `GET /api/images/{id}`
+  - `GET /api/images/download/{id}`
+  - `GET /api/images/case/{caseId}`
+  - `DELETE /api/images/{id}`
+
+## License
+
+MIT. See `LICENSE`.
