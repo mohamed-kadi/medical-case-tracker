@@ -26,6 +26,9 @@
 
 ## Mandatory Coverage Areas
 
+- Role contract:
+  - current role behavior (`ADMIN`, `DOCTOR`, `STAFF`, `PATIENT`) remains stable
+  - future role split (`SYSTEM_ADMIN`, `CLINIC_ADMIN`) must ship with migration and compatibility tests
 - Auth login/register:
   - validation errors
   - role restrictions
@@ -47,9 +50,14 @@
   - upload validation
   - path safety
   - deleted image access restrictions
+- Audit trail:
+  - actor attribution from security context
+  - key mutation events persisted for patient/case/image/appointment flows
+  - admin audit endpoint returns filtered recent events
 - Security:
   - public endpoints
   - protected endpoint role access
+  - assignment-based data visibility isolation (doctor/staff)
   - interceptor header behavior (`Authorization`, `Accept-Language`)
 
 ## Runtime Profiles
@@ -76,11 +84,34 @@ Environment source policy:
 
 - Backend:
   - `AuthControllerTest` (`@WebMvcTest`) for auth validation, role restrictions, localized responses
-  - `SecurityConfigIntegrationTest` (`@SpringBootTest`) for route access rules by role
+  - `AdminUserControllerTest` (`@WebMvcTest`) for admin provisioning and internal-user directory role filtering/localized errors
+  - `AdminPatientControllerTest` (`@WebMvcTest`) for admin patient assignment endpoint behavior
+  - `AppointmentControllerTest` (`@WebMvcTest`) for scheduling endpoint request/response behavior
+  - `AdminAuditControllerTest` (`@WebMvcTest`) for admin audit endpoint behavior and limit guardrails
+  - `BootstrapAdminInitializerTest` for bootstrap admin creation/guardrails
+  - `SecurityConfigIntegrationTest` (`@SpringBootTest`) for route access rules by role (including admin non-clinical restrictions)
+  - `AssignmentAccessIntegrationTest` (`@SpringBootTest`) for doctor/staff patient, case, and appointment visibility boundaries
   - `LocalizationBundleConsistencyTest` for `en/fr` message-key synchronization
-  - `PatientServiceImplTest` for service behavior and conflict paths
+  - `PatientServiceImplTest` for service behavior, conflict paths, role-scoped assignment logic, and patient mutation audit emission
+  - `AppointmentServiceImplTest` for scheduling behavior, role-scoped upcoming filters, and appointment mutation audit emission
+  - `AuditEventServiceImplTest` for actor resolution and event persistence behavior
+  - `MedicalCaseServiceImplTest` for case mutation audit event emission
+  - `MedicalImageServiceImplTest` for image upload/delete audit event emission
 - Frontend:
   - `auth.service.spec.ts` for login/register/token behavior
+  - `admin-user.service.spec.ts` for admin internal-user provisioning API calls
+  - `patient.service.spec.ts` for patient list/create/update and assignment API calls
+  - `appointment.service.spec.ts` for upcoming appointment API calls
+  - `case.service.spec.ts` for patient case create/update/status API calls
+  - `image.service.spec.ts` for case image list/upload/delete API calls
+  - `admin-users-page.component.spec.ts` for admin provisioning form and internal-user directory/search behavior
+  - `admin-audit-page.component.spec.ts` for admin audit filter and loading/error behavior
+  - `dashboard-page.component.spec.ts` for patient visibility, assignment UI behavior, and upcoming appointments rendering
+  - `patients-page.component.spec.ts` for patient directory search/filter UI behavior
+  - `patient-form-page.component.spec.ts` for patient create/edit route flow
+  - `patient-cases-page.component.spec.ts` for case workspace create/edit/image upload UI behavior
+  - `guest.guard.spec.ts`, `internal.guard.spec.ts`, `clinical.guard.spec.ts`, and `admin.guard.spec.ts` for role-based routing behavior
+  - `login-page.component.spec.ts` for post-login role-based redirect behavior
   - `i18n.service.spec.ts` for translation behavior and dictionary key parity
   - `language.service.spec.ts` for language persistence
   - `auth.interceptor.spec.ts` for `Authorization` header rules

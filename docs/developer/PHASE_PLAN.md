@@ -1,48 +1,117 @@
-# Phase Plan
+# Phase Plan (Spec v1)
 
-## Phase 1 - Frontend Enterprise Foundation
+Aligned with:
 
-Status: In progress
+- `docs/developer/PRODUCT_BUILD_MAP_MA.md`
+- `docs/developer/DEVELOPER_MAP.md`
 
-- Angular workspace scaffolded in `frontend/`
-- Auth shell implemented (`/login`, `/register`, `/dashboard`)
-- Route protection enabled for dashboard
-- JWT and `Accept-Language` interceptors integrated
-- English/French UI dictionary and language switcher implemented
+## Planning Rules
 
-## Phase 2 - Test and Contract Foundation
+- Keep one platform and one codebase.
+- Ship internal clinic value first, then expand.
+- Do not rename roles in code without migration + tests + documentation in the same PR.
 
-Status: In progress
+## Role Contract by Phase
 
-- Establish stable test runtime (`test` profile with H2)
-- Maintain backend controller/service tests for auth and business flows
-- Maintain frontend unit tests for auth and language services
-- Define API contract hardening path (DTOs, input/output separation)
-- Keep bilingual i18n behavior validated (`en`, `fr`)
+Current implemented contract:
 
-## Phase 3 - Security and Config Baseline
+- `ADMIN` = clinic-level admin (not platform super-admin)
+- `DOCTOR`, `STAFF` = internal clinical users
+- `PATIENT` = limited/future portal role
 
-Status: In progress
+Target contract (future phase):
 
-- Harden endpoint authorization and role mapping
-- Remove hardcoded secrets from source-controlled defaults (`JWT_SECRET` now env-driven in `dev`/`prod`)
-- Enforce upload and identity safety controls
-- Keep profile-based runtime configuration explicit
+- `SYSTEM_ADMIN` for platform operations
+- `CLINIC_ADMIN` for clinic-local administration
+- Preserve `DOCTOR`, `STAFF`, `PATIENT`
 
-## Phase 4 - Data and Migration Reliability
+## Phase 0 - Foundation Hardening
 
-Status: Deferred (frontend-first delivery)
+Status: Completed (except optional setup runbook polish)
 
-- Introduce Flyway baseline after domain model freeze
-- Define explicit indexes and constraints for growth paths
-- Remove reliance on `ddl-auto=update` in production lifecycle
-- Add sample seed strategy once data ownership rules are confirmed
+- `.env` template and local secrets policy
+- env-driven JWT secret
+- admin provisioning endpoint
+- optional first-admin bootstrap
+- PostgreSQL dev bootstrap helper script
+- CI for backend/frontend build and tests
 
-## Phase 5 - Observability and Release Governance
+Exit criteria:
+
+- New machine can run backend/frontend and tests with docs only.
+
+## Phase 1 - Internal Clinic MVP
+
+Status: In progress (active build phase)
+
+- RBAC-safe internal workflow for `ADMIN`/`DOCTOR`/`STAFF`
+- Patient CRUD with assignment visibility boundaries
+- Case and image flows with service-layer access checks
+- Upcoming appointments API + dashboard integration
+- Basic audit events for key write operations
+- UX hardening: dashboard-first navigation and dedicated patient create/edit flows
+
+Current execution order inside Phase 1:
+
+1. Freeze and test role boundaries (`docs/developer/RBAC_MATRIX.md`, security integration tests).
+2. Keep admin dashboard management-only (team + assignment) and clinical dashboard action-oriented.
+3. Complete frontend case/image workflow screens on top of existing secured backend APIs.
+4. Add audit logging coverage for patient/case/image/appointment mutations.
+   - Current: patient/case/image/appointment service audit events implemented and unit-tested.
+   - Current: admin audit endpoint + frontend audit viewer implemented.
+   - Next: tighten audit retention/export policy and compliance-level reporting.
+
+Exit criteria:
+
+- Pilot clinic can run daily workflows without PATIENT portal dependency.
+
+## Phase 1.5 - Access Model Split + Tenant Foundation
+
+Status: Planned (next after Phase 1 closure)
+
+- Introduce explicit `SYSTEM_ADMIN` vs `CLINIC_ADMIN`
+- Add tenant model foundations (`tenant_id`, tenant-aware queries, tenant-safe auth claims)
+- Backward-compatible migration path from current `ADMIN`
+- Update frontend role routing for the split roles
+
+Exit criteria:
+
+- Same product runs as single-tenant or multi-tenant without code fork.
+
+## Phase 2 - Revenue Modules
 
 Status: Planned
 
-- Add metrics and health probes
-- Add structured logs and trace identifiers
-- Enforce CI quality gates for tests and docs
-- Build release runbooks and incident response guidance
+- Scheduling enhancements (follow-up workflows, calendar quality-of-life)
+- Prescription + medication tracking
+- Structured clinical notes and specialty template packs
+- Operational exports/reporting
+
+Exit criteria:
+
+- Commercial package usable by private clinics beyond core tracking.
+
+## Phase 3 - Compliance + Operability
+
+Status: Planned (can run in parallel with Phase 2)
+
+- Complete audit trail coverage
+- Consent/retention policy flows
+- Backup/restore + disaster recovery runbook
+- CNDP-aligned documentation package
+
+Exit criteria:
+
+- Compliance and operational readiness for broader deployment.
+
+## Phase 4 - Patient Portal (Optional Add-On)
+
+Status: Deferred until business validation
+
+- Patient self-access to own data only
+- Follow-up reminders, secure communication
+- Explicit clinic opt-in control
+
+Exit criteria:
+
+- Portal can be enabled per clinic without affecting internal workflows.

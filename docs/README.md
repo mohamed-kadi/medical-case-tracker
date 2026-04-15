@@ -2,11 +2,18 @@
 
 This folder is the single entry point for product, engineering, testing, and user-facing documentation.
 
+Current planning baseline:
+
+- Spec v1 is internal-clinic first.
+- In current code/docs, `ADMIN` means clinic admin.
+- Future phase introduces explicit `SYSTEM_ADMIN` and `CLINIC_ADMIN`.
+
 ## Developer Docs
 
 - [Developer Map](./developer/DEVELOPER_MAP.md)
 - [Product Build Map (Morocco)](./developer/PRODUCT_BUILD_MAP_MA.md)
 - [Phase Plan](./developer/PHASE_PLAN.md)
+- [RBAC Matrix (V1)](./developer/RBAC_MATRIX.md)
 - [Testing Strategy](./developer/TESTING_STRATEGY.md)
 - [Documentation Checklist](./developer/DOCUMENTATION_CHECKLIST.md)
 - [Backend Run Guide](../backend/README.md)

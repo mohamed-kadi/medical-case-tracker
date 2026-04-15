@@ -10,18 +10,43 @@ Build one platform for private clinics (not three separate apps), with specialty
 
 Core product remains shared: users, patients, cases, images, notes, scheduling, prescriptions, audit/compliance.
 
+## System Design Principle (No Rebuild Across Business Models)
+
+Use one architecture that can run in:
+
+- On-prem clinic mode (single tenant per deployment)
+- Hosted single-tenant mode
+- Multi-tenant SaaS mode (tenant layer added in planned phase)
+
+Technical implication:
+
+- keep modules tenant-ready from now (service boundaries, DTO discipline, RBAC checks)
+- add tenant isolation in the data/auth layer as a controlled migration, not a rewrite
+
 ## Why This Path
 
 - Faster time to market and lower maintenance than multiple apps.
 - Better fit for your existing codebase, which already has patient/case/image foundations.
 - Easier regulatory and security management (single architecture, single compliance baseline).
 
-## Roles Model (Target)
+## Roles Model (Current vs Target)
 
-- `ADMIN`: clinic setup, staff provisioning, configuration, audit access.
-- `DOCTOR`: own/assigned patient care workflows.
-- `STAFF`: intake, scheduling, upload support, operational tasks.
-- `PATIENT`: future portal only (not part of day-1 internal rollout).
+Current (implemented):
+
+- `ADMIN`: clinic admin for current internal product scope
+- `DOCTOR`: assigned patient care workflows
+- `STAFF`: intake, scheduling, upload support, operations
+- `PATIENT`: future portal track (not day-1 clinic workflow)
+
+Target (planned):
+
+- `SYSTEM_ADMIN`: platform operator role for SaaS/hybrid control plane
+- `CLINIC_ADMIN`: clinic-local administration role (current `ADMIN` semantics)
+- `DOCTOR`, `STAFF`, `PATIENT`: same functional intent
+
+Migration rule:
+
+- current `ADMIN` users migrate to `CLINIC_ADMIN` when role split is introduced.
 
 ## Build Phases
 
@@ -47,6 +72,16 @@ Deliverable:
 
 Deliverable:
 - Deployable internal MVP for pilot clinics.
+
+### Phase 1.5 - Role Split and Tenant Foundation
+
+- Introduce `SYSTEM_ADMIN` + `CLINIC_ADMIN`.
+- Add `tenant_id` to core domain tables and tenant-aware repository queries.
+- Add tenant claim handling in authentication and authorization layers.
+- Keep backward compatibility for current single-clinic deployments.
+
+Deliverable:
+- Same codebase can run single-tenant or multi-tenant with configuration.
 
 ### Phase 2 - Revenue Features (4-6 weeks)
 
