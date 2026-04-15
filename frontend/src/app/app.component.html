@@ -1,0 +1,24 @@
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" [routerLink]="isAuthenticated() ? '/dashboard' : '/login'">
+      <span class="brand-title">{{ i18n.t('app.brand') }}</span>
+      <small>{{ i18n.t('app.subtitle') }}</small>
+    </a>
+
+    <nav class="nav-links" *ngIf="!isAuthenticated() && isAuthRoute()">
+      <a routerLink="/login" routerLinkActive="active">{{ i18n.t('nav.login') }}</a>
+      <a routerLink="/register" routerLinkActive="active">{{ i18n.t('nav.register') }}</a>
+    </nav>
+
+    <div class="actions">
+      <app-language-switcher></app-language-switcher>
+      <button *ngIf="isAuthenticated()" type="button" class="logout-btn" (click)="logout()">
+        {{ i18n.t('nav.logout') }}
+      </button>
+    </div>
+  </header>
+
+  <main class="page-content" [class.auth-layout]="!isAuthenticated() && isAuthRoute()">
+    <router-outlet></router-outlet>
+  </main>
+</div>
