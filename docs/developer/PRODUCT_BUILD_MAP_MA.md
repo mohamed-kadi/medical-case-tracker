@@ -35,14 +35,14 @@ Current (implemented):
 
 - `ADMIN`: clinic admin for current internal product scope
 - `DOCTOR`: assigned patient care workflows
-- `STAFF`: intake, scheduling, upload support, operations
+- `FRONT_DESK`: intake, scheduling, upload support, operations
 - `PATIENT`: future portal track (not day-1 clinic workflow)
 
 Target (planned):
 
 - `SYSTEM_ADMIN`: platform operator role for SaaS/hybrid control plane
 - `CLINIC_ADMIN`: clinic-local administration role (current `ADMIN` semantics)
-- `DOCTOR`, `STAFF`, `PATIENT`: same functional intent
+- `DOCTOR`, `FRONT_DESK`, `PATIENT`: same functional intent
 
 Migration rule:
 
@@ -62,7 +62,7 @@ Deliverable:
 
 ### Phase 1 - Internal Clinic MVP (4-6 weeks)
 
-- Staff-only workflow (`ADMIN/DOCTOR/STAFF`):
+- Staff-only workflow (`ADMIN/DOCTOR/FRONT_DESK`):
   - Patient management
   - Case timeline
   - Image upload and progression
@@ -145,7 +145,7 @@ Deliverable:
 - Add admin-only user provisioning endpoint.
 
 2. Add assignment boundaries:
-- Doctor/staff only see assigned patients/cases.
+- Doctors see assigned patients/cases. Front desk handles patient intake and scheduling with clinical fields hidden.
 
 3. Start scheduling domain:
 - Create `Appointment` entity + CRUD endpoints + tests.
@@ -158,5 +158,5 @@ Deliverable:
 - Time to create patient + first case + upload first image.
 - Follow-up adherence rate (scheduled vs attended).
 - Average case resolution time.
-- Active users per clinic (`DOCTOR` + `STAFF`).
+- Active users per clinic (`DOCTOR` + `FRONT_DESK`).
 - Churn/retention after first 60 days.

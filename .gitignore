@@ -54,3 +54,6 @@ Thumbs.db
 
 # Additional local IDE/runtime artifacts
 .metals/
+
+# Runtime uploads/storage
+backend/var/

@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { adminGuard } from './core/guards/admin.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { clinicalGuard } from './core/guards/clinical.guard';
+import { doctorGuard } from './core/guards/doctor.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { internalGuard } from './core/guards/internal.guard';
 import { DashboardPageComponent } from './features/dashboard/dashboard-page.component';
@@ -11,9 +12,12 @@ import { PatientPortalPageComponent } from './features/auth/patient-portal-page.
 import { RegisterPageComponent } from './features/auth/register-page.component';
 import { PatientsPageComponent } from './features/patients/patients-page.component';
 import { PatientFormPageComponent } from './features/patients/patient-form-page.component';
+import { PatientWorkspacePageComponent } from './features/patients/patient-workspace-page.component';
 import { AdminUsersPageComponent } from './features/admin/admin-users-page.component';
 import { AdminAuditPageComponent } from './features/admin/admin-audit-page.component';
+import { AdminAssignmentsPageComponent } from './features/admin/admin-assignments-page.component';
 import { PatientCasesPageComponent } from './features/cases/patient-cases-page.component';
+import { AppointmentsPageComponent } from './features/appointments/appointments-page.component';
 
 export const routes: Routes = [
   {
@@ -54,11 +58,26 @@ export const routes: Routes = [
   {
     path: 'patients/:id/cases',
     component: PatientCasesPageComponent,
+    canActivate: [doctorGuard]
+  },
+  {
+    path: 'patients/:id',
+    component: PatientWorkspacePageComponent,
+    canActivate: [clinicalGuard]
+  },
+  {
+    path: 'appointments',
+    component: AppointmentsPageComponent,
     canActivate: [clinicalGuard]
   },
   {
     path: 'admin/users',
     component: AdminUsersPageComponent,
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/assignments',
+    component: AdminAssignmentsPageComponent,
     canActivate: [adminGuard]
   },
   {

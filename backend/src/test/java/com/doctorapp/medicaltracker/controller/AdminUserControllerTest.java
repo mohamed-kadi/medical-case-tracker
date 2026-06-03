@@ -48,8 +48,8 @@ class AdminUserControllerTest {
     @Test
     void listUsers_whenNoRoleFilter_returnsDoctorAndStaffUsers() throws Exception {
         User doctor = buildUser(10L, "doctor_a", "doctor_a@clinic.com", UserRole.DOCTOR);
-        User staff = buildUser(11L, "staff_a", "staff_a@clinic.com", UserRole.STAFF);
-        when(userRepository.findByRoleInOrderByRoleAscUsernameAsc(List.of(UserRole.DOCTOR, UserRole.STAFF)))
+        User staff = buildUser(11L, "staff_a", "staff_a@clinic.com", UserRole.FRONT_DESK);
+        when(userRepository.findByRoleInOrderByRoleAscUsernameAsc(List.of(UserRole.DOCTOR, UserRole.FRONT_DESK)))
                 .thenReturn(List.of(doctor, staff));
 
         mockMvc.perform(get("/api/admin/users"))
@@ -58,7 +58,7 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$[0].username").value("doctor_a"))
                 .andExpect(jsonPath("$[0].role").value("DOCTOR"))
                 .andExpect(jsonPath("$[1].username").value("staff_a"))
-                .andExpect(jsonPath("$[1].role").value("STAFF"));
+                .andExpect(jsonPath("$[1].role").value("FRONT_DESK"));
     }
 
     @Test
@@ -77,7 +77,7 @@ class AdminUserControllerTest {
     void listUsers_whenRoleFilterIsInvalid_returnsBadRequest() throws Exception {
         mockMvc.perform(get("/api/admin/users").param("role", "PATIENT"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Role filter must be DOCTOR, STAFF, or ALL"));
+                .andExpect(content().string("Role filter must be DOCTOR, FRONT_DESK, or ALL"));
     }
 
     @Test
@@ -86,7 +86,7 @@ class AdminUserControllerTest {
                 .param("role", "ADMIN")
                 .header("Accept-Language", "fr"))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Le filtre de role doit etre DOCTOR, STAFF ou ALL"));
+                .andExpect(content().string("Le filtre de role doit etre DOCTOR, FRONT_DESK ou ALL"));
     }
 
     @Test
@@ -142,7 +142,7 @@ class AdminUserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Admin provisioning only supports DOCTOR and STAFF roles"));
+                .andExpect(content().string("Admin provisioning only supports DOCTOR and FRONT_DESK roles"));
     }
 
     @Test
@@ -161,7 +161,7 @@ class AdminUserControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("La creation admin prend en charge uniquement les roles DOCTOR et STAFF"));
+                .andExpect(content().string("La creation admin prend en charge uniquement les roles DOCTOR et FRONT_DESK"));
     }
 
     private User buildUser(Long id, String username, String email, UserRole role) {

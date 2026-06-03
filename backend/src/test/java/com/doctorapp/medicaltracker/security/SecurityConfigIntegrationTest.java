@@ -76,8 +76,8 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
-    @WithMockUser(username = "staffUser", roles = "STAFF")
-    void patientsCreateEndpointShouldAllowStaffRole() throws Exception {
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void patientsCreateEndpointShouldAllowFrontDeskRole() throws Exception {
         mockMvc.perform(post("/api/patients")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -99,10 +99,23 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
-    @WithMockUser(username = "staffUser", roles = "STAFF")
-    void appointmentsEndpointShouldAllowStaffRole() throws Exception {
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void appointmentsEndpointShouldAllowFrontDeskRole() throws Exception {
         mockMvc.perform(get("/api/appointments/upcoming"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void appointmentsStatusEndpointShouldAllowFrontDeskRole() throws Exception {
+        mockMvc.perform(patch("/api/appointments/1/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "status": "CANCELLED"
+                        }
+                        """))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -120,6 +133,31 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void casesGetEndpointShouldRejectFrontDeskRole() throws Exception {
+        mockMvc.perform(get("/api/cases/1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void casesCreateEndpointShouldRejectFrontDeskRole() throws Exception {
+        mockMvc.perform(post("/api/cases/patients/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "doctorUser", roles = "DOCTOR")
+    void casesCreateEndpointShouldAllowDoctorRole() throws Exception {
+        mockMvc.perform(post("/api/cases/patients/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @WithMockUser(username = "adminUser", roles = "ADMIN")
     void imagesEndpointShouldRejectAdminRole() throws Exception {
         mockMvc.perform(get("/api/images/case/1"))
@@ -127,10 +165,10 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
-    @WithMockUser(username = "staffUser", roles = "STAFF")
-    void imagesEndpointShouldAllowStaffRole() throws Exception {
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void imagesEndpointShouldRejectFrontDeskRole() throws Exception {
         mockMvc.perform(get("/api/images/case/1"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
     }
 
     @Test

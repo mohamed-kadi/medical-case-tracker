@@ -77,4 +77,41 @@ describe('AppointmentService', () => {
       status: 'SCHEDULED'
     });
   });
+
+  it('should load appointments for a patient', () => {
+    service.getAppointmentsByPatientId(42).subscribe((appointments) => {
+      expect(appointments.length).toBe(1);
+      expect(appointments[0].id).toBe(9);
+    });
+
+    const request = httpMock.expectOne('http://localhost:8080/api/appointments/patients/42');
+    expect(request.request.method).toBe('GET');
+    request.flush([
+      {
+        id: 9,
+        scheduledAt: '2030-01-01T08:00:00',
+        reason: 'Check-up',
+        notes: null,
+        status: 'SCHEDULED'
+      }
+    ]);
+  });
+
+  it('should update appointment status', () => {
+    service.updateAppointmentStatus(7, 'CANCELLED').subscribe((appointment) => {
+      expect(appointment.id).toBe(7);
+      expect(appointment.status).toBe('CANCELLED');
+    });
+
+    const request = httpMock.expectOne('http://localhost:8080/api/appointments/7/status');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ status: 'CANCELLED' });
+    request.flush({
+      id: 7,
+      scheduledAt: '2030-01-01T10:30:00',
+      reason: 'Follow-up',
+      notes: null,
+      status: 'CANCELLED'
+    });
+  });
 });

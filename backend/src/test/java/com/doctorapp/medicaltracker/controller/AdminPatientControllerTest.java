@@ -43,7 +43,7 @@ class AdminPatientControllerTest {
         patient.setDateOfBirth(LocalDate.of(1990, 1, 1));
         patient.setStatus(PatientStatus.ACTIVE);
         patient.setAssignedDoctorUsername("doctorOne");
-        patient.setAssignedStaffUsername("staffOne");
+        patient.setAssignedFrontDeskUsername("staffOne");
 
         when(patientService.assignPatient(10L, "doctorOne", "staffOne")).thenReturn(patient);
 
@@ -52,12 +52,12 @@ class AdminPatientControllerTest {
                 .content("""
                         {
                           "doctorUsername": "doctorOne",
-                          "staffUsername": "staffOne"
+                          "frontDeskUsername": "staffOne"
                         }
                         """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10L))
                 .andExpect(jsonPath("$.assignedDoctorUsername").value("doctorOne"))
-                .andExpect(jsonPath("$.assignedStaffUsername").value("staffOne"));
+                .andExpect(jsonPath("$.assignedFrontDeskUsername").value("staffOne"));
     }
 }

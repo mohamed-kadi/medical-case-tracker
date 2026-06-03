@@ -3,16 +3,20 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { PatientsPageComponent } from './patients-page.component';
+import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
 import { I18nService } from '../../core/services/i18n.service';
 
 describe('PatientsPageComponent', () => {
+  let authServiceSpy: jasmine.SpyObj<AuthService>;
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
 
   beforeEach(async () => {
+    authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
     patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', ['getVisiblePatients']);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     i18nServiceSpy.t.and.callFake((key: string) => key);
 
     patientServiceSpy.getVisiblePatients.and.returnValue(of([]));
@@ -21,6 +25,7 @@ describe('PatientsPageComponent', () => {
       imports: [PatientsPageComponent],
       providers: [
         provideRouter([]),
+        { provide: AuthService, useValue: authServiceSpy },
         { provide: PatientService, useValue: patientServiceSpy },
         { provide: I18nService, useValue: i18nServiceSpy }
       ]

@@ -30,7 +30,7 @@ describe('AdminUsersPageComponent', () => {
           id: 11,
           username: 'staff_one',
           email: 'staff.one@clinic.com',
-          role: 'STAFF',
+          role: 'FRONT_DESK',
           enabled: true
         }
       ])
@@ -60,9 +60,9 @@ describe('AdminUsersPageComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    component.onDirectoryRoleChange('STAFF');
+    component.onDirectoryRoleChange('FRONT_DESK');
 
-    expect(adminUserServiceSpy.getInternalUsers).toHaveBeenCalledWith('STAFF');
+    expect(adminUserServiceSpy.getInternalUsers).toHaveBeenCalledWith('FRONT_DESK');
   });
 
   it('filters visible users by search term', () => {
@@ -121,7 +121,7 @@ describe('AdminUsersPageComponent', () => {
       username: 'staff_one',
       email: 'staff.one@clinic.com',
       password: 'StrongPass123!',
-      role: 'STAFF'
+      role: 'FRONT_DESK'
     });
     component.submit();
 

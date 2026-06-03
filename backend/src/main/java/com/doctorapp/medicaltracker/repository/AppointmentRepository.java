@@ -7,19 +7,24 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.doctorapp.medicaltracker.model.Appointment;
+import com.doctorapp.medicaltracker.model.AppointmentStatus;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
     List<Appointment> findByPatientIdOrderByScheduledAtAsc(Long patientId);
 
-    List<Appointment> findByScheduledAtGreaterThanEqualOrderByScheduledAtAsc(LocalDateTime fromDateTime);
-
-    List<Appointment> findByScheduledAtGreaterThanEqualAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+    List<Appointment> findByScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(
             LocalDateTime fromDateTime,
+            AppointmentStatus status);
+
+    List<Appointment> findByScheduledAtGreaterThanEqualAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+            LocalDateTime fromDateTime,
+            AppointmentStatus status,
             String assignedDoctorUsername);
 
-    List<Appointment> findByScheduledAtGreaterThanEqualAndPatientAssignedStaffUsernameOrderByScheduledAtAsc(
+    List<Appointment> findByScheduledAtGreaterThanEqualAndStatusAndPatientAssignedFrontDeskUsernameOrderByScheduledAtAsc(
             LocalDateTime fromDateTime,
-            String assignedStaffUsername);
+            AppointmentStatus status,
+            String assignedFrontDeskUsername);
 }

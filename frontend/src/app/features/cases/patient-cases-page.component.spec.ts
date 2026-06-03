@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { PatientCasesPageComponent } from './patient-cases-page.component';
 import { PatientService } from '../../core/services/patient.service';
@@ -204,6 +205,30 @@ describe('PatientCasesPageComponent', () => {
     expect(imageServiceSpy.uploadImage).toHaveBeenCalledWith(file, 501, 'BEFORE_TREATMENT', 'Before treatment');
     expect(imageServiceSpy.getImagesByCase).toHaveBeenCalledWith(501, 'ALL');
     expect(component.images.length).toBe(1);
+  });
+
+  it('shows backend error details when image upload fails', () => {
+    imageServiceSpy.uploadImage.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'Invalid image file' } }))
+    );
+
+    const fixture = TestBed.createComponent(PatientCasesPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    const file = new File(['abc'], 'before.jpg', { type: 'image/jpeg' });
+    const event = {
+      target: {
+        files: {
+          item: (_index: number) => file
+        }
+      }
+    } as unknown as Event;
+
+    component.onFileSelected(event);
+    component.uploadImage();
+
+    expect(component.imageErrorMessage).toBe('Invalid image file');
   });
 
   it('reloads images when category filter changes', () => {

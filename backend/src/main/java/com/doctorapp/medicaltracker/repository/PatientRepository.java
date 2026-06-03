@@ -20,15 +20,19 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     List<Patient> findByAssignedDoctorUsername(String assignedDoctorUsername);
 
-    List<Patient> findByAssignedStaffUsername(String assignedStaffUsername);
+    List<Patient> findByAssignedFrontDeskUsername(String assignedFrontDeskUsername);
 
     List<Patient> findByLastNameContainingIgnoreCaseAndAssignedDoctorUsername(
             String lastName,
             String assignedDoctorUsername);
 
-    List<Patient> findByLastNameContainingIgnoreCaseAndAssignedStaffUsername(
+    List<Patient> findByLastNameContainingIgnoreCaseAndAssignedFrontDeskUsername(
             String lastName,
-            String assignedStaffUsername);
+            String assignedFrontDeskUsername);
+
+    long countByPatientNumberStartingWith(String patientNumberPrefix);
+
+    boolean existsByPatientNumber(String patientNumber);
 
     boolean existsByEmail(String email); // check if a patient with the given email exists
 }

@@ -1,20 +1,26 @@
 package com.doctorapp.medicaltracker.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.doctorapp.medicaltracker.model.CaseStatus;
 import com.doctorapp.medicaltracker.model.MedicalCase;
@@ -38,8 +44,16 @@ class MedicalCaseServiceImplTest {
     @InjectMocks
     private MedicalCaseServiceImpl medicalCaseService;
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void createCase_recordsAuditEvent() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
+
         Patient patient = patientWithId(2L);
         MedicalCase newCase = new MedicalCase();
         newCase.setTitle("Acne treatment");
@@ -64,6 +78,9 @@ class MedicalCaseServiceImplTest {
 
     @Test
     void updateCaseStatus_recordsAuditEventWithTransition() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
+
         Patient patient = patientWithId(3L);
         MedicalCase existing = new MedicalCase();
         existing.setId(7L);
@@ -71,7 +88,7 @@ class MedicalCaseServiceImplTest {
         existing.setTitle("Wound follow-up");
         existing.setStatus(CaseStatus.OPEN);
 
-        when(medicalCaseRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(medicalCaseRepository.findByIdWithPatient(7L)).thenReturn(Optional.of(existing));
         when(medicalCaseRepository.save(any(MedicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MedicalCase updated = medicalCaseService.updateCaseStatus(7L, CaseStatus.IN_PROGRESS);
@@ -86,6 +103,9 @@ class MedicalCaseServiceImplTest {
 
     @Test
     void deleteCase_recordsAuditEvent() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
+
         Patient patient = patientWithId(4L);
         MedicalCase existing = new MedicalCase();
         existing.setId(12L);
@@ -93,7 +113,7 @@ class MedicalCaseServiceImplTest {
         existing.setTitle("Resolved lesion");
         existing.setStatus(CaseStatus.RESOLVED);
 
-        when(medicalCaseRepository.findById(12L)).thenReturn(Optional.of(existing));
+        when(medicalCaseRepository.findByIdWithPatient(12L)).thenReturn(Optional.of(existing));
 
         medicalCaseService.deleteCase(12L);
 
@@ -103,6 +123,27 @@ class MedicalCaseServiceImplTest {
                 eq(12L),
                 eq("CASE_DELETED"),
                 contains("status=RESOLVED"));
+    }
+
+    @Test
+    void createCase_whenStaffRole_throwsAccessDeniedException() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("staffOne", "n/a", "ROLE_FRONT_DESK"));
+
+        MedicalCase newCase = new MedicalCase();
+        newCase.setTitle("Staff case");
+
+        assertThrows(AccessDeniedException.class, () -> medicalCaseService.createCase(2L, newCase));
+        verify(patientService, never()).getPatientById(any(Long.class));
+    }
+
+    @Test
+    void updateCaseStatus_whenStaffRole_throwsAccessDeniedException() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("staffOne", "n/a", "ROLE_FRONT_DESK"));
+
+        assertThrows(AccessDeniedException.class, () -> medicalCaseService.updateCaseStatus(7L, CaseStatus.IN_PROGRESS));
+        verify(medicalCaseRepository, never()).findByIdWithPatient(any(Long.class));
     }
 
     private Patient patientWithId(Long id) {

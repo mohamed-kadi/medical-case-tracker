@@ -3,9 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from '../services/auth.service';
 
-const CLINIC_ROLES = new Set(['ADMIN', 'DOCTOR', 'FRONT_DESK']);
-
-export const internalGuard: CanActivateFn = () => {
+export const doctorGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -13,9 +11,14 @@ export const internalGuard: CanActivateFn = () => {
     return router.createUrlTree(['/login']);
   }
 
-  if (CLINIC_ROLES.has(authService.getCurrentRole())) {
+  const role = authService.getCurrentRole();
+  if (role === 'DOCTOR') {
     return true;
   }
 
-  return router.createUrlTree(['/patient-portal']);
+  if (role === 'PATIENT') {
+    return router.createUrlTree(['/patient-portal']);
+  }
+
+  return router.createUrlTree(['/dashboard']);
 };

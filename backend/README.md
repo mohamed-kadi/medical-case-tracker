@@ -14,11 +14,17 @@ Update `backend/.env` with local values (especially `JWT_SECRET`).
 
 `backend/.env` is intentionally ignored by git and must never be committed.
 
-Default DB values in `.env.example`:
+Recommended local dev values in `.env.example`:
 
 - `DB_URL=jdbc:postgresql://localhost:5432/medicaltracker`
-- `DB_USERNAME=postgres`
-- `DB_PASSWORD=postgres`
+- `DB_USERNAME=medical_user`
+- `DB_PASSWORD=medical_password`
+
+Meaning of those values:
+
+- `medicaltracker` is the database name.
+- `medical_user` is the PostgreSQL login role used by the backend.
+- `postgres` is best used as the admin/bootstrap role, not the app runtime user.
 
 ## Required Environment Variables
 
@@ -41,8 +47,8 @@ From repository root:
 ```bash
 PG_SUPERUSER=postgres \
 APP_DB_NAME=medicaltracker \
-APP_DB_USER=postgres \
-APP_DB_PASSWORD=postgres \
+APP_DB_USER=medical_user \
+APP_DB_PASSWORD=medical_password \
 ./backend/scripts/bootstrap-postgres-dev.sh
 ```
 
@@ -50,19 +56,27 @@ Then keep the same username/password in `backend/.env` and pgAdmin.
 
 ## Daily Run
 
-From `backend/` directory:
+Use the command that matches your current directory.
+
+If you are already inside `backend/`:
 
 ```bash
 set -a; source .env; set +a
 ./mvnw spring-boot:run
 ```
 
-From repository root (equivalent):
+If you are at the repository root:
 
 ```bash
 set -a; source backend/.env; set +a
 cd backend && ./mvnw spring-boot:run
 ```
+
+Do not mix these paths:
+
+- From the repo root, use `backend/.env`.
+- From inside `backend/`, use `.env`.
+- Running `source backend/.env` while already inside `backend/` looks for `backend/backend/.env`, which is wrong.
 
 ## CI/Deploy Secrets
 
@@ -72,8 +86,16 @@ cd backend && ./mvnw spring-boot:run
 ## Admin Provisioning
 
 - Public registration endpoint (`/api/auth/register`) creates `PATIENT` users only.
-- Admin provisioning endpoint (`POST /api/admin/users`) allows admins to create `DOCTOR` and `STAFF` users.
-- Admin assignment endpoint (`PATCH /api/admin/patients/{id}/assignment`) allows admins to assign/reassign doctor and staff usernames on patients.
+- Admin provisioning endpoint (`POST /api/admin/users`) allows admins to create `DOCTOR` and `FRONT_DESK` users.
+- Admin assignment endpoint (`PATCH /api/admin/patients/{id}/assignment`) allows admins to assign/reassign doctor and front desk usernames on patients.
+
+## Patient Registration Flow
+
+- Patient creation records the logged-in creator as `registeredByUsername`; this is separate from the current doctor/front desk assignment.
+- When a `FRONT_DESK` user creates a patient, the backend sets `assignedFrontDeskUsername` to that receptionist.
+- If exactly one enabled doctor exists, the backend auto-assigns that doctor.
+- If multiple enabled doctors exist, the patient remains without a doctor assignment until admin review.
+- If no enabled doctors exist, the patient remains without a doctor assignment until a doctor exists and is assigned.
 
 ## Scheduling API (Phase 1)
 

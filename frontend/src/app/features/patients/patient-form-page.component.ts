@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
+import { AuthService } from '../../core/services/auth.service';
 import { PatientUpsertRequest } from '../../core/models/patient.model';
 
 type FormMode = 'create' | 'edit';
@@ -76,13 +77,16 @@ type FormMode = 'create' | 'edit';
             </div>
           </fieldset>
 
-          <fieldset>
+          <fieldset *ngIf="canEditClinicalDetails; else clinicalRestricted">
             <legend>{{ i18n.t('patients.form.section.clinical') }}</legend>
             <label>
               {{ i18n.t('patients.form.medicalHistory') }}
               <textarea formControlName="medicalHistory" rows="5"></textarea>
             </label>
           </fieldset>
+          <ng-template #clinicalRestricted>
+            <p class="privacy-note">{{ i18n.t('patients.form.clinicalRestricted') }}</p>
+          </ng-template>
 
           <small *ngIf="isInvalid('firstName') || isInvalid('lastName') || isInvalid('dateOfBirth')">
             {{ i18n.t('common.required') }}
@@ -244,6 +248,15 @@ type FormMode = 'create' | 'edit';
       margin-top: -0.15rem;
     }
 
+    .privacy-note {
+      margin: 0;
+      border: 1px dashed var(--surface-strong);
+      border-radius: 0.6rem;
+      padding: 0.65rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
     .form-actions {
       display: flex;
       gap: 0.5rem;
@@ -289,6 +302,7 @@ export class PatientFormPageComponent implements OnInit {
     private readonly formBuilder: FormBuilder,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
+    private readonly authService: AuthService,
     private readonly patientService: PatientService,
     public readonly i18n: I18nService
   ) {
@@ -324,6 +338,10 @@ export class PatientFormPageComponent implements OnInit {
   isInvalid(controlName: 'firstName' | 'lastName' | 'dateOfBirth' | 'email'): boolean {
     const control = this.form.controls[controlName];
     return control.invalid && control.touched;
+  }
+
+  get canEditClinicalDetails(): boolean {
+    return this.authService.getCurrentRole() === 'DOCTOR';
   }
 
   cancel(): void {
@@ -399,15 +417,18 @@ export class PatientFormPageComponent implements OnInit {
 
   private toPayload(): PatientUpsertRequest {
     const value = this.form.getRawValue();
-    return {
+    const payload: PatientUpsertRequest = {
       firstName: value.firstName.trim(),
       lastName: value.lastName.trim(),
       dateOfBirth: value.dateOfBirth,
       email: value.email.trim(),
       phoneNumber: this.normalizeOptional(value.phoneNumber),
-      medicalHistory: this.normalizeOptional(value.medicalHistory),
       status: value.status
     };
+    if (this.canEditClinicalDetails) {
+      payload.medicalHistory = this.normalizeOptional(value.medicalHistory);
+    }
+    return payload;
   }
 
   private normalizeOptional(value: string): string | null {

@@ -45,9 +45,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         Patient patient = patientService.getPatientById(patientId);
         appointment.setPatient(patient);
-        if (appointment.getStatus() == null) {
-            appointment.setStatus(AppointmentStatus.SCHEDULED);
-        }
+        appointment.setStatus(AppointmentStatus.SCHEDULED);
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
         auditEventService.recordEvent(
@@ -81,16 +79,17 @@ public class AppointmentServiceImpl implements AppointmentService {
         AccessScope accessScope = getAccessScope();
 
         return switch (accessScope.role()) {
-            case ADMIN_OR_SYSTEM -> appointmentRepository.findByScheduledAtGreaterThanEqualOrderByScheduledAtAsc(
-                    effectiveFromDate);
+            case ADMIN_OR_SYSTEM -> appointmentRepository.findByScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(
+                    effectiveFromDate,
+                    AppointmentStatus.SCHEDULED);
             case DOCTOR -> appointmentRepository
-                    .findByScheduledAtGreaterThanEqualAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                    .findByScheduledAtGreaterThanEqualAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
                             effectiveFromDate,
+                            AppointmentStatus.SCHEDULED,
                             accessScope.username());
-            case STAFF -> appointmentRepository
-                    .findByScheduledAtGreaterThanEqualAndPatientAssignedStaffUsernameOrderByScheduledAtAsc(
-                            effectiveFromDate,
-                            accessScope.username());
+            case FRONT_DESK -> appointmentRepository.findByScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(
+                    effectiveFromDate,
+                    AppointmentStatus.SCHEDULED);
             case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
         };
     }
@@ -111,9 +110,6 @@ public class AppointmentServiceImpl implements AppointmentService {
             existingAppointment.setReason(appointmentDetails.getReason().trim());
         }
         existingAppointment.setNotes(appointmentDetails.getNotes());
-        if (appointmentDetails.getStatus() != null) {
-            existingAppointment.setStatus(appointmentDetails.getStatus());
-        }
 
         Appointment savedAppointment = appointmentRepository.save(existingAppointment);
         auditEventService.recordEvent(
@@ -200,8 +196,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (hasAuthority(authentication, "ROLE_DOCTOR")) {
             return new AccessScope(authentication.getName(), AccessRole.DOCTOR);
         }
-        if (hasAuthority(authentication, "ROLE_STAFF")) {
-            return new AccessScope(authentication.getName(), AccessRole.STAFF);
+        if (hasAuthority(authentication, "ROLE_FRONT_DESK")) {
+            return new AccessScope(authentication.getName(), AccessRole.FRONT_DESK);
         }
         return new AccessScope(authentication.getName(), AccessRole.DENIED);
     }
@@ -215,7 +211,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private enum AccessRole {
         ADMIN_OR_SYSTEM,
         DOCTOR,
-        STAFF,
+        FRONT_DESK,
         DENIED
     }
 

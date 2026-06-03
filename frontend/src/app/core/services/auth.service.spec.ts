@@ -10,6 +10,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
 
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()]
@@ -22,9 +23,10 @@ describe('AuthService', () => {
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
-  it('should call login endpoint and persist token', () => {
+  it('should call login endpoint and persist token only for the current browser session', () => {
     service.login({ username: 'doctor', password: 'SecurePass1!' }).subscribe();
 
     const request = httpMock.expectOne('http://localhost:8080/api/auth/login');
@@ -32,7 +34,8 @@ describe('AuthService', () => {
 
     request.flush({ token: buildToken({ sub: 'doctor', exp: futureExp() }) });
 
-    expect(localStorage.getItem('medicaltracker.accessToken')).toBeTruthy();
+    expect(sessionStorage.getItem('medicaltracker.accessToken')).toBeTruthy();
+    expect(localStorage.getItem('medicaltracker.accessToken')).toBeNull();
   });
 
   it('should call register endpoint as text response', () => {
@@ -47,7 +50,7 @@ describe('AuthService', () => {
   });
 
   it('should return false for expired tokens', () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       'medicaltracker.accessToken',
       buildToken({ sub: 'doctor', exp: pastExp() })
     );
@@ -56,7 +59,7 @@ describe('AuthService', () => {
   });
 
   it('should return true for non-expired tokens', () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       'medicaltracker.accessToken',
       buildToken({ sub: 'doctor', exp: futureExp() })
     );
@@ -65,12 +68,22 @@ describe('AuthService', () => {
   });
 
   it('should decode role from token payload', () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       'medicaltracker.accessToken',
       buildToken({ sub: 'admin', role: 'ADMIN', exp: futureExp() })
     );
 
     expect(service.getCurrentRole()).toBe('ADMIN');
+  });
+
+  it('should ignore and remove legacy localStorage tokens', () => {
+    localStorage.setItem(
+      'medicaltracker.accessToken',
+      buildToken({ sub: 'admin', role: 'ADMIN', exp: futureExp() })
+    );
+
+    expect(service.isAuthenticated()).toBeFalse();
+    expect(localStorage.getItem('medicaltracker.accessToken')).toBeNull();
   });
 });
 

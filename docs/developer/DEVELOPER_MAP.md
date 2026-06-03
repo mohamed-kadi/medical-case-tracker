@@ -20,9 +20,17 @@ Medical Case Tracker is a secure full-stack clinic operations platform for patie
 Current code contract:
 
 - `ADMIN` means clinic admin (not platform/system admin), scoped to management workflows by default
-- `DOCTOR` and `STAFF` are internal users
+- `DOCTOR` and `FRONT_DESK` are internal users
 - `PATIENT` is limited/future portal user
+- `registeredByUsername` records who created a patient folder; it is not the same as `assignedFrontDeskUsername`, which represents current front desk responsibility
 - Detailed capability matrix: `docs/developer/RBAC_MATRIX.md`
+
+Patient registration contract:
+
+- `FRONT_DESK` patient creation must always record the authenticated receptionist as `registeredByUsername`.
+- `FRONT_DESK` patient creation must set `assignedFrontDeskUsername` to the authenticated receptionist.
+- If exactly one enabled doctor exists, `FRONT_DESK` patient creation auto-assigns that doctor.
+- If zero or multiple enabled doctors exist, doctor assignment stays blank for admin review.
 
 Target contract (future phase):
 
@@ -60,10 +68,11 @@ Target contract (future phase):
 - Route access guards:
   - `authGuard` protects workspace routes
   - `guestGuard` redirects authenticated users away from auth screens
-  - `internalGuard` restricts clinic workspace routes to `ADMIN/DOCTOR/STAFF`
-  - `clinicalGuard` restricts clinical workspace routes to `DOCTOR/STAFF`
+  - `internalGuard` restricts clinic workspace routes to `ADMIN/DOCTOR/FRONT_DESK`
+  - `clinicalGuard` restricts clinical workspace routes to `DOCTOR/FRONT_DESK`
   - `adminGuard` restricts admin provisioning route to `ADMIN` only
 - Auth/token services: `frontend/src/app/core/services/auth.service.ts`, `frontend/src/app/core/services/token-storage.service.ts`
+- Auth tokens must stay in `sessionStorage` so local offline workstations do not share an admin/doctor/front-desk login across every browser window on the same `localhost` origin.
 - Patient and appointment API services: `frontend/src/app/core/services/patient.service.ts`, `frontend/src/app/core/services/appointment.service.ts`
 - Case and image API services: `frontend/src/app/core/services/case.service.ts`, `frontend/src/app/core/services/image.service.ts`
 - UI localization: `frontend/src/app/core/services/language.service.ts`, `frontend/src/app/core/services/i18n.service.ts`

@@ -1,4 +1,4 @@
-export type InternalUserRole = 'DOCTOR' | 'STAFF';
+export type InternalUserRole = 'DOCTOR' | 'FRONT_DESK';
 
 export interface AdminCreateUserRequest {
   username: string;

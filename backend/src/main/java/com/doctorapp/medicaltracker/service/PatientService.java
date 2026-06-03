@@ -13,7 +13,7 @@ public interface PatientService {
 
     void assertCurrentUserCanAccessPatient(Patient patient);
 
-    Patient assignPatient(Long id, String doctorUsername, String staffUsername);
+    Patient assignPatient(Long id, String doctorUsername, String frontDeskUsername);
 
     List<Patient> searchPatientsByLastName(String lastName);
     

@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class AdminAssignPatientRequest {
     private String doctorUsername;
-    private String staffUsername;
+    private String frontDeskUsername;
 }

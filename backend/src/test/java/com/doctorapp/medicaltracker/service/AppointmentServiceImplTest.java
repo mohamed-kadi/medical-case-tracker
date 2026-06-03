@@ -63,8 +63,9 @@ class AppointmentServiceImplTest {
         appointment.setReason("Follow-up");
         appointment.setStatus(AppointmentStatus.SCHEDULED);
 
-        when(appointmentRepository.findByScheduledAtGreaterThanEqualAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+        when(appointmentRepository.findByScheduledAtGreaterThanEqualAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
                 fromDateTime,
+                AppointmentStatus.SCHEDULED,
                 "doctorOne")).thenReturn(List.of(appointment));
 
         List<Appointment> result = appointmentService.getUpcomingAppointments(fromDateTime);
@@ -72,8 +73,9 @@ class AppointmentServiceImplTest {
         assertEquals(1, result.size());
         assertEquals(11L, result.get(0).getId());
         verify(appointmentRepository)
-                .findByScheduledAtGreaterThanEqualAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                .findByScheduledAtGreaterThanEqualAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
                         fromDateTime,
+                        AppointmentStatus.SCHEDULED,
                         "doctorOne");
     }
 
@@ -122,6 +124,28 @@ class AppointmentServiceImplTest {
     }
 
     @Test
+    void createAppointment_whenStatusProvided_overridesToScheduled() {
+        Patient patient = new Patient();
+        patient.setId(9L);
+        patient.setFirstName("Jane");
+        patient.setLastName("Doe");
+        patient.setEmail("jane@clinic.com");
+        patient.setDateOfBirth(LocalDate.of(1990, 1, 1));
+
+        Appointment appointment = new Appointment();
+        appointment.setScheduledAt(LocalDateTime.of(2026, 4, 20, 11, 30));
+        appointment.setReason("Initial consult");
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+
+        when(patientService.getPatientById(9L)).thenReturn(patient);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Appointment created = appointmentService.createAppointment(9L, appointment);
+
+        assertEquals(AppointmentStatus.SCHEDULED, created.getStatus());
+    }
+
+    @Test
     void updateAppointmentStatus_whenTransitionInvalid_throwsIllegalStateException() {
         Appointment appointment = appointmentWithPatient(30L, 4L);
         appointment.setStatus(AppointmentStatus.COMPLETED);
@@ -156,6 +180,23 @@ class AppointmentServiceImplTest {
     }
 
     @Test
+    void updateAppointment_whenStatusPassed_doesNotChangeStatus() {
+        Appointment appointment = appointmentWithPatient(51L, 4L);
+        appointment.setStatus(AppointmentStatus.SCHEDULED);
+        when(appointmentRepository.findById(51L)).thenReturn(Optional.of(appointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Appointment updatePayload = new Appointment();
+        updatePayload.setStatus(AppointmentStatus.CANCELLED);
+        updatePayload.setReason("Updated reason");
+
+        Appointment updated = appointmentService.updateAppointment(51L, updatePayload);
+
+        assertEquals(AppointmentStatus.SCHEDULED, updated.getStatus());
+        assertEquals("Updated reason", updated.getReason());
+    }
+
+    @Test
     void deleteAppointment_recordsAuditEvent() {
         Appointment appointment = appointmentWithPatient(45L, 12L);
         when(appointmentRepository.findById(45L)).thenReturn(Optional.of(appointment));
@@ -186,4 +227,5 @@ class AppointmentServiceImplTest {
         appointment.setStatus(AppointmentStatus.SCHEDULED);
         return appointment;
     }
+
 }

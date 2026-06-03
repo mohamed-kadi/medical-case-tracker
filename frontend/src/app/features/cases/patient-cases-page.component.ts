@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { of, switchMap } from 'rxjs';
@@ -509,6 +510,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   readonly imageUploadForm;
 
   private patientId: number | null = null;
+  private preferredCaseId: number | null = null;
   private previewObjectUrl: string | null = null;
 
   constructor(
@@ -548,6 +550,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     }
 
     this.patientId = parsedPatientId;
+    this.preferredCaseId = this.parsePreferredCaseId(this.route.snapshot.queryParamMap?.get('caseId') ?? null);
     this.loadPatient(parsedPatientId);
     this.loadCases(parsedPatientId);
   }
@@ -735,8 +738,8 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
           this.loadImages(this.selectedCaseId!);
           this.isUploadingImage = false;
         },
-        error: () => {
-          this.imageErrorMessage = this.i18n.t('cases.feedback.uploadError');
+        error: (error) => {
+          this.imageErrorMessage = this.resolveErrorMessage(error, 'cases.feedback.uploadError');
           this.isUploadingImage = false;
         }
       });
@@ -828,7 +831,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     this.caseService.getCasesByPatientId(patientId).subscribe({
       next: (cases) => {
         this.cases = [...cases];
-        const selectedCaseId = this.selectedCaseId ?? this.cases[0]?.id ?? null;
+        const selectedCaseId = this.resolveNextSelectedCaseId();
         this.isLoadingCases = false;
 
         if (selectedCaseId != null) {
@@ -844,6 +847,15 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  private resolveNextSelectedCaseId(): number | null {
+    if (this.preferredCaseId != null && this.cases.some((medicalCase) => medicalCase.id === this.preferredCaseId)) {
+      const nextCaseId = this.preferredCaseId;
+      this.preferredCaseId = null;
+      return nextCaseId;
+    }
+    return this.selectedCaseId ?? this.cases[0]?.id ?? null;
+  }
+
   private loadImages(caseId: number): void {
     this.isLoadingImages = true;
     this.imageErrorMessage = '';
@@ -856,10 +868,10 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
         }
         this.isLoadingImages = false;
       },
-      error: () => {
+      error: (error) => {
         this.images = [];
         this.closePreview();
-        this.imageErrorMessage = this.i18n.t('cases.feedback.loadImagesError');
+        this.imageErrorMessage = this.resolveErrorMessage(error, 'cases.feedback.loadImagesError');
         this.isLoadingImages = false;
       }
     });
@@ -872,6 +884,14 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   private normalizeOptionalValue(value: string): string | null {
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private parsePreferredCaseId(value: string | null): number | null {
+    if (value == null || value.trim().length === 0) {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   private normalizeImageCategoryFilter(value: string): ImageCategory | 'ALL' {
@@ -903,5 +923,30 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     anchor.rel = 'noopener';
     anchor.click();
     URL.revokeObjectURL(downloadUrl);
+  }
+
+  private resolveErrorMessage(error: unknown, fallbackKey: string): string {
+    const fallback = this.i18n.t(fallbackKey);
+    if (!(error instanceof HttpErrorResponse)) {
+      return fallback;
+    }
+
+    if (typeof error.error === 'string' && error.error.trim().length > 0) {
+      return error.error;
+    }
+
+    if (error.error && typeof error.error === 'object') {
+      const message = (error.error as { message?: unknown; error?: unknown }).message;
+      if (typeof message === 'string' && message.trim().length > 0) {
+        return message;
+      }
+
+      const genericError = (error.error as { message?: unknown; error?: unknown }).error;
+      if (typeof genericError === 'string' && genericError.trim().length > 0) {
+        return genericError;
+      }
+    }
+
+    return fallback;
   }
 }

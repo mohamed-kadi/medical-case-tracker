@@ -136,6 +136,8 @@ public class PatientServiceImplTest {
         SecurityContextHolder.getContext()
                 .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
 
+        testPatient.setAssignedDoctorUsername("spoofedDoctor");
+        testPatient.setAssignedFrontDeskUsername("spoofedFrontDesk");
         when(patientRepository.existsByEmail(testPatient.getEmail())).thenReturn(false);
         when(patientRepository.save(any(Patient.class))).thenAnswer(invocation -> {
             Patient saved = invocation.getArgument(0);
@@ -146,12 +148,84 @@ public class PatientServiceImplTest {
         Patient created = patientService.createPatient(testPatient);
 
         assertEquals("doctorOne", created.getAssignedDoctorUsername());
+        assertEquals(null, created.getAssignedFrontDeskUsername());
+        assertEquals("doctorOne", created.getRegisteredByUsername());
         verify(patientRepository).save(testPatient);
         verify(auditEventService).recordEvent(
                 eq("PATIENT"),
                 eq(1L),
                 eq("PATIENT_CREATED"),
-                contains("doctor=doctorOne"));
+                contains("registeredBy=doctorOne"));
+    }
+
+    @Test
+    void createPatient_whenFrontDeskAuthenticated_recordsRegistrarAndAutoAssignsSoleDoctor() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("receptionOne", "n/a", "ROLE_FRONT_DESK"));
+
+        User doctor = new User();
+        doctor.setUsername("doctorOne");
+        doctor.setRole(UserRole.DOCTOR);
+        doctor.setEnabled(true);
+
+        User disabledDoctor = new User();
+        disabledDoctor.setUsername("doctorDisabled");
+        disabledDoctor.setRole(UserRole.DOCTOR);
+        disabledDoctor.setEnabled(false);
+
+        testPatient.setMedicalHistory("should be cleared");
+        testPatient.setAssignedDoctorUsername("spoofedDoctor");
+        testPatient.setAssignedFrontDeskUsername("spoofedFrontDesk");
+
+        when(patientRepository.existsByEmail(testPatient.getEmail())).thenReturn(false);
+        when(userRepository.findByRoleOrderByUsernameAsc(UserRole.DOCTOR)).thenReturn(List.of(doctor, disabledDoctor));
+        when(patientRepository.save(any(Patient.class))).thenAnswer(invocation -> {
+            Patient saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        Patient created = patientService.createPatient(testPatient);
+
+        assertEquals("doctorOne", created.getAssignedDoctorUsername());
+        assertEquals("receptionOne", created.getAssignedFrontDeskUsername());
+        assertEquals("receptionOne", created.getRegisteredByUsername());
+        assertEquals(null, created.getMedicalHistory());
+        verify(auditEventService).recordEvent(
+                eq("PATIENT"),
+                eq(1L),
+                eq("PATIENT_CREATED"),
+                contains("registeredBy=receptionOne"));
+    }
+
+    @Test
+    void createPatient_whenFrontDeskAuthenticatedAndMultipleDoctors_leavesDoctorUnassigned() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("receptionOne", "n/a", "ROLE_FRONT_DESK"));
+
+        User doctorOne = new User();
+        doctorOne.setUsername("doctorOne");
+        doctorOne.setRole(UserRole.DOCTOR);
+        doctorOne.setEnabled(true);
+
+        User doctorTwo = new User();
+        doctorTwo.setUsername("doctorTwo");
+        doctorTwo.setRole(UserRole.DOCTOR);
+        doctorTwo.setEnabled(true);
+
+        when(patientRepository.existsByEmail(testPatient.getEmail())).thenReturn(false);
+        when(userRepository.findByRoleOrderByUsernameAsc(UserRole.DOCTOR)).thenReturn(List.of(doctorOne, doctorTwo));
+        when(patientRepository.save(any(Patient.class))).thenAnswer(invocation -> {
+            Patient saved = invocation.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
+
+        Patient created = patientService.createPatient(testPatient);
+
+        assertEquals(null, created.getAssignedDoctorUsername());
+        assertEquals("receptionOne", created.getAssignedFrontDeskUsername());
+        assertEquals("receptionOne", created.getRegisteredByUsername());
     }
 
     @Test
@@ -169,7 +243,7 @@ public class PatientServiceImplTest {
 
         User staff = new User();
         staff.setUsername("staffOne");
-        staff.setRole(UserRole.STAFF);
+        staff.setRole(UserRole.FRONT_DESK);
 
         when(patientRepository.findById(5L)).thenReturn(Optional.of(existing));
         when(userRepository.findByUsername("doctorOne")).thenReturn(Optional.of(doctor));
@@ -179,7 +253,7 @@ public class PatientServiceImplTest {
         Patient updated = patientService.assignPatient(5L, "doctorOne", "staffOne");
 
         assertEquals("doctorOne", updated.getAssignedDoctorUsername());
-        assertEquals("staffOne", updated.getAssignedStaffUsername());
+        assertEquals("staffOne", updated.getAssignedFrontDeskUsername());
         verify(patientRepository).save(existing);
         verify(auditEventService).recordEvent(
                 eq("PATIENT"),
@@ -247,7 +321,7 @@ public class PatientServiceImplTest {
 
         User wrongRoleUser = new User();
         wrongRoleUser.setUsername("doctorOne");
-        wrongRoleUser.setRole(UserRole.STAFF);
+        wrongRoleUser.setRole(UserRole.FRONT_DESK);
 
         when(patientRepository.findById(5L)).thenReturn(Optional.of(existing));
         when(userRepository.findByUsername("doctorOne")).thenReturn(Optional.of(wrongRoleUser));

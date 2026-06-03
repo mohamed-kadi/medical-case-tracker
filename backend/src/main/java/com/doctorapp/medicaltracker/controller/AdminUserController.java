@@ -30,8 +30,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminUserController {
 
-    private static final Set<UserRole> ALLOWED_PROVISION_ROLES = Set.of(UserRole.DOCTOR, UserRole.STAFF);
-    private static final List<UserRole> INTERNAL_ROLES = List.of(UserRole.DOCTOR, UserRole.STAFF);
+    private static final Set<UserRole> ALLOWED_PROVISION_ROLES = Set.of(UserRole.DOCTOR, UserRole.FRONT_DESK);
+    private static final List<UserRole> INTERNAL_ROLES = List.of(UserRole.DOCTOR, UserRole.FRONT_DESK);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;

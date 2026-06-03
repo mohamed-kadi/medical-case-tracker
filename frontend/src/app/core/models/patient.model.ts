@@ -1,5 +1,7 @@
 export interface Patient {
   id: number;
+  patientNumber?: string | null;
+  registeredByUsername?: string | null;
   firstName: string;
   lastName: string;
   dateOfBirth?: string;
@@ -8,7 +10,7 @@ export interface Patient {
   medicalHistory?: string | null;
   status: string;
   assignedDoctorUsername?: string | null;
-  assignedStaffUsername?: string | null;
+  assignedFrontDeskUsername?: string | null;
 }
 
 export interface PatientUpsertRequest {
@@ -23,5 +25,5 @@ export interface PatientUpsertRequest {
 
 export interface PatientAssignmentRequest {
   doctorUsername?: string | null;
-  staffUsername?: string | null;
+  frontDeskUsername?: string | null;
 }

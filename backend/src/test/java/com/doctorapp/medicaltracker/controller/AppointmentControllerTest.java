@@ -2,6 +2,7 @@ package com.doctorapp.medicaltracker.controller;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -78,5 +79,28 @@ class AppointmentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(11L));
+    }
+
+    @Test
+    void updateAppointmentStatus_whenPayloadIsValid_returnsUpdatedAppointment() throws Exception {
+        Appointment appointment = new Appointment();
+        appointment.setId(12L);
+        appointment.setScheduledAt(LocalDateTime.of(2026, 4, 22, 14, 30));
+        appointment.setReason("Follow-up");
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+
+        when(appointmentService.updateAppointmentStatus(12L, AppointmentStatus.CANCELLED))
+                .thenReturn(appointment);
+
+        mockMvc.perform(patch("/api/appointments/12/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "status": "CANCELLED"
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(12L))
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
     }
 }

@@ -10,6 +10,7 @@ describe('authInterceptor', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
 
     TestBed.configureTestingModule({
       providers: [
@@ -25,10 +26,11 @@ describe('authInterceptor', () => {
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('adds Authorization header for protected API requests when token exists', () => {
-    localStorage.setItem('medicaltracker.accessToken', 'access-token-value');
+    sessionStorage.setItem('medicaltracker.accessToken', 'access-token-value');
 
     http.get('/api/patients').subscribe();
 
@@ -38,7 +40,7 @@ describe('authInterceptor', () => {
   });
 
   it('does not add Authorization header for auth endpoints', () => {
-    localStorage.setItem('medicaltracker.accessToken', 'access-token-value');
+    sessionStorage.setItem('medicaltracker.accessToken', 'access-token-value');
 
     http.post('/api/auth/login', { username: 'u', password: 'p' }).subscribe();
 

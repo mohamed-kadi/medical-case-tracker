@@ -16,14 +16,14 @@ Aligned with:
 Current implemented contract:
 
 - `ADMIN` = clinic-level admin (not platform super-admin)
-- `DOCTOR`, `STAFF` = internal clinical users
+- `DOCTOR`, `FRONT_DESK` = internal clinical users
 - `PATIENT` = limited/future portal role
 
 Target contract (future phase):
 
 - `SYSTEM_ADMIN` for platform operations
 - `CLINIC_ADMIN` for clinic-local administration
-- Preserve `DOCTOR`, `STAFF`, `PATIENT`
+- Preserve `DOCTOR`, `FRONT_DESK`, `PATIENT`
 
 ## Phase 0 - Foundation Hardening
 
@@ -44,7 +44,7 @@ Exit criteria:
 
 Status: In progress (active build phase)
 
-- RBAC-safe internal workflow for `ADMIN`/`DOCTOR`/`STAFF`
+- RBAC-safe internal workflow for `ADMIN`/`DOCTOR`/`FRONT_DESK`
 - Patient CRUD with assignment visibility boundaries
 - Case and image flows with service-layer access checks
 - Upcoming appointments API + dashboard integration

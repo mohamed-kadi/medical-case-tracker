@@ -25,7 +25,7 @@ describe('AdminUserService', () => {
     service.getInternalUsers().subscribe((users) => {
       expect(users.length).toBe(2);
       expect(users[0].role).toBe('DOCTOR');
-      expect(users[1].role).toBe('STAFF');
+      expect(users[1].role).toBe('FRONT_DESK');
     });
 
     const request = httpMock.expectOne('http://localhost:8080/api/admin/users');
@@ -42,7 +42,7 @@ describe('AdminUserService', () => {
         id: 2,
         username: 'staff_a',
         email: 'staff_a@clinic.com',
-        role: 'STAFF',
+        role: 'FRONT_DESK',
         enabled: true
       }
     ]);

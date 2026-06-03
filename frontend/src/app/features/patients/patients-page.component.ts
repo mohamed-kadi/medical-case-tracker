@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 
 import { I18nService } from '../../core/services/i18n.service';
 import { Patient } from '../../core/models/patient.model';
+import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
 
 type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
@@ -98,12 +99,18 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
             </div>
             <p>{{ patient.email }}</p>
             <small>
+              {{ i18n.t('patients.table.patientNumber') }}: {{ patient.patientNumber || '-' }}
+              ·
               {{ i18n.t('patients.table.dob') }}: {{ patient.dateOfBirth || '-' }}
               · {{ i18n.t('patients.table.phone') }}: {{ patient.phoneNumber || '-' }}
+              · {{ i18n.t('patients.table.registeredBy') }}: {{ patient.registeredByUsername || '-' }}
             </small>
 
             <div class="patient-actions">
-              <a [routerLink]="['/patients', patient.id, 'cases']">{{ i18n.t('patients.actions.cases') }}</a>
+              <a [routerLink]="['/patients', patient.id]">{{ i18n.t('patients.actions.workspace') }}</a>
+              <a *ngIf="isDoctorRole" [routerLink]="['/patients', patient.id, 'cases']">
+                {{ i18n.t('patients.actions.cases') }}
+              </a>
               <a [routerLink]="['/patients', patient.id, 'edit']">{{ i18n.t('patients.actions.edit') }}</a>
             </div>
           </article>
@@ -379,6 +386,7 @@ export class PatientsPageComponent implements OnInit {
   errorMessage = '';
 
   constructor(
+    private readonly authService: AuthService,
     private readonly patientService: PatientService,
     public readonly i18n: I18nService
   ) {}
@@ -404,6 +412,10 @@ export class PatientsPageComponent implements OnInit {
         .toLowerCase()
         .includes(normalizedSearch);
     });
+  }
+
+  get isDoctorRole(): boolean {
+    return this.authService.getCurrentRole() === 'DOCTOR';
   }
 
   trackByPatientId(_: number, patient: Patient): number {

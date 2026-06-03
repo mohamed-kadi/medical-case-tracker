@@ -27,7 +27,7 @@ public class AdminPatientController {
         Patient updatedPatient = patientService.assignPatient(
                 id,
                 request == null ? null : request.getDoctorUsername(),
-                request == null ? null : request.getStaffUsername());
+                request == null ? null : request.getFrontDeskUsername());
         return ResponseEntity.ok(updatedPatient);
     }
 }

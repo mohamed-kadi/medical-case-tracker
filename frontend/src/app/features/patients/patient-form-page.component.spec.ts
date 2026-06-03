@@ -3,10 +3,12 @@ import { convertToParamMap, ActivatedRoute, provideRouter, Router } from '@angul
 import { of } from 'rxjs';
 
 import { PatientFormPageComponent } from './patient-form-page.component';
+import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
 import { I18nService } from '../../core/services/i18n.service';
 
 describe('PatientFormPageComponent', () => {
+  let authServiceSpy: jasmine.SpyObj<AuthService>;
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
   const activatedRouteMock = {
@@ -16,12 +18,14 @@ describe('PatientFormPageComponent', () => {
   };
 
   beforeEach(async () => {
+    authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
     patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', [
       'getPatientById',
       'createPatient',
       'updatePatient'
     ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     i18nServiceSpy.t.and.callFake((key: string) => key);
 
     patientServiceSpy.getPatientById.and.returnValue(
@@ -66,6 +70,7 @@ describe('PatientFormPageComponent', () => {
       providers: [
         provideRouter([]),
         { provide: ActivatedRoute, useValue: activatedRouteMock },
+        { provide: AuthService, useValue: authServiceSpy },
         { provide: PatientService, useValue: patientServiceSpy },
         { provide: I18nService, useValue: i18nServiceSpy }
       ]
@@ -132,5 +137,33 @@ describe('PatientFormPageComponent', () => {
       status: 'ACTIVE'
     });
     expect(router.navigateByUrl).toHaveBeenCalledWith('/patients');
+  });
+
+  it('omits medical history when front desk submits patient details', () => {
+    authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
+    activatedRouteMock.snapshot.paramMap = convertToParamMap({});
+    const fixture = TestBed.createComponent(PatientFormPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.form.patchValue({
+      firstName: 'Nora',
+      lastName: 'Smith',
+      dateOfBirth: '1991-03-12',
+      email: 'nora@clinic.com',
+      phoneNumber: '',
+      medicalHistory: 'should not be sent',
+      status: 'ACTIVE'
+    });
+    component.submit();
+
+    expect(patientServiceSpy.createPatient).toHaveBeenCalledWith({
+      firstName: 'Nora',
+      lastName: 'Smith',
+      dateOfBirth: '1991-03-12',
+      email: 'nora@clinic.com',
+      phoneNumber: null,
+      status: 'ACTIVE'
+    });
   });
 });

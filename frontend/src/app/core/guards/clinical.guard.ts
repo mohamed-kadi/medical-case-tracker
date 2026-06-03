@@ -3,7 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from '../services/auth.service';
 
-const CLINICAL_ROLES = new Set(['DOCTOR', 'STAFF']);
+const CLINICAL_ROLES = new Set(['DOCTOR', 'FRONT_DESK']);
 
 export const clinicalGuard: CanActivateFn = () => {
   const authService = inject(AuthService);

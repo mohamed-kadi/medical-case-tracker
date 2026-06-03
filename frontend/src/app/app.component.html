@@ -1,24 +1,128 @@
-<div class="app-shell">
-  <header class="topbar">
-    <a class="brand" [routerLink]="isAuthenticated() ? '/dashboard' : '/login'">
-      <span class="brand-title">{{ i18n.t('app.brand') }}</span>
-      <small>{{ i18n.t('app.subtitle') }}</small>
-    </a>
+<div class="app-shell" [class.workspace-shell]="isWorkspaceLayout()" [ngClass]="workspaceThemeClass()">
+  <ng-container *ngIf="isWorkspaceLayout(); else fallbackLayout">
+    <aside class="app-sidebar">
+      <a class="brand sidebar-brand" routerLink="/dashboard">
+        <span class="brand-mark">M</span>
+        <span>
+          <span class="brand-title">{{ i18n.t('app.brand') }}</span>
+          <small>{{ i18n.t('app.subtitle') }}</small>
+        </span>
+      </a>
 
-    <nav class="nav-links" *ngIf="!isAuthenticated() && isAuthRoute()">
-      <a routerLink="/login" routerLinkActive="active">{{ i18n.t('nav.login') }}</a>
-      <a routerLink="/register" routerLinkActive="active">{{ i18n.t('nav.register') }}</a>
-    </nav>
+      <nav class="sidebar-nav" [attr.aria-label]="i18n.t('shell.navigation')">
+        <span class="nav-section">{{ i18n.t('shell.navigation') }}</span>
+        <a
+          *ngFor="let item of workspaceNavItems()"
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: !item.prefixMatch }"
+          [class.active-prefix]="item.prefixMatch && isRoutePrefix(item.route)"
+        >
+          <span class="nav-icon">{{ item.icon }}</span>
+          <span>{{ i18n.t(item.labelKey) }}</span>
+        </a>
+      </nav>
 
-    <div class="actions">
-      <app-language-switcher></app-language-switcher>
-      <button *ngIf="isAuthenticated()" type="button" class="logout-btn" (click)="logout()">
-        {{ i18n.t('nav.logout') }}
-      </button>
-    </div>
-  </header>
+      <section class="agenda-panel" *ngIf="showClinicalAgenda()">
+        <div class="agenda-header">
+          <h3>{{ i18n.t('shell.agenda.title') }}</h3>
+          <label>
+            <span class="sr-only">{{ i18n.t('shell.agenda.range.label') }}</span>
+            <select [value]="agendaRange" (change)="onAgendaRangeChange($any($event.target).value)">
+              <option value="TODAY">{{ i18n.t('shell.agenda.range.today') }}</option>
+              <option value="WEEK">{{ i18n.t('shell.agenda.range.week') }}</option>
+            </select>
+          </label>
+        </div>
 
-  <main class="page-content" [class.auth-layout]="!isAuthenticated() && isAuthRoute()">
-    <router-outlet></router-outlet>
-  </main>
+        <p class="agenda-state" *ngIf="agendaLoading">{{ i18n.t('shell.agenda.loading') }}</p>
+        <p class="agenda-state error" *ngIf="!agendaLoading && agendaError.length > 0">{{ agendaError }}</p>
+        <p class="agenda-state" *ngIf="!agendaLoading && agendaError.length === 0 && agendaItems.length === 0">
+          {{ i18n.t('shell.agenda.empty') }}
+        </p>
+
+        <div class="agenda-list" *ngIf="!agendaLoading && agendaError.length === 0 && agendaItems.length > 0">
+          <article class="agenda-item" *ngFor="let appointment of agendaItems">
+            <strong>{{ appointment.scheduledAt | date: 'EEE, MMM d · HH:mm' }}</strong>
+            <span>{{ appointment.reason }}</span>
+          </article>
+        </div>
+
+        <a class="agenda-link" routerLink="/appointments">{{ i18n.t('shell.agenda.open') }}</a>
+      </section>
+
+      <section class="account-card">
+        <span class="account-avatar">{{ currentUsername().slice(0, 1) || '?' }}</span>
+        <span>
+          <strong>{{ currentUsername() || i18n.t('roles.unknown') }}</strong>
+          <small>{{ i18n.t(sidebarRoleLabelKey()) }}</small>
+        </span>
+      </section>
+    </aside>
+
+    <section class="workspace-main">
+      <header class="topbar workspace-topbar">
+        <div class="page-heading" [class.dashboard-identity-heading]="isDashboardRoute()">
+          <ng-container *ngIf="isDashboardRoute(); else routeHeading">
+            <span class="workspace-pill">{{ i18n.t('shell.workspace') }}</span>
+            <div class="role-identity">
+              <span class="role-identity-mark" aria-hidden="true">{{ roleInitial() }}</span>
+              <span>
+                <strong>{{ i18n.t(sidebarRoleLabelKey()) }}</strong>
+                <small>{{ currentUsername() || i18n.t('roles.unknown') }}</small>
+              </span>
+            </div>
+          </ng-container>
+
+          <ng-template #routeHeading>
+            <span class="workspace-pill">{{ i18n.t('shell.workspace') }}</span>
+            <h1>{{ i18n.t(contextTitleKey()) }}</h1>
+            <p>{{ i18n.t(contextDescriptionKey()) }}</p>
+          </ng-template>
+        </div>
+
+        <div class="actions">
+          <app-language-switcher></app-language-switcher>
+          <button type="button" class="logout-btn" (click)="logout()">
+            {{ i18n.t('nav.logout') }}
+          </button>
+        </div>
+      </header>
+
+      <main class="page-content workspace-content">
+        <router-outlet></router-outlet>
+      </main>
+    </section>
+  </ng-container>
+
+  <ng-template #fallbackLayout>
+    <header class="topbar public-topbar">
+      <a class="brand" [routerLink]="isAuthenticated() ? '/dashboard' : '/login'">
+        <span class="brand-mark">M</span>
+        <span>
+          <span class="brand-title">{{ i18n.t('app.brand') }}</span>
+          <small>{{ i18n.t('app.subtitle') }}</small>
+        </span>
+      </a>
+
+      <div class="auth-actions" *ngIf="!isAuthenticated() && isAuthRoute()">
+        <app-language-switcher></app-language-switcher>
+        <nav class="nav-links">
+          <a routerLink="/login" routerLinkActive="active">{{ i18n.t('nav.login') }}</a>
+          <a routerLink="/register" routerLinkActive="active">{{ i18n.t('nav.register') }}</a>
+        </nav>
+      </div>
+
+      <div class="actions" *ngIf="isAuthenticated() || !isAuthRoute()">
+        <app-language-switcher></app-language-switcher>
+        <button *ngIf="isAuthenticated()" type="button" class="logout-btn" (click)="logout()">
+          {{ i18n.t('nav.logout') }}
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content" [class.auth-layout]="!isAuthenticated() && isAuthRoute()">
+      <router-outlet></router-outlet>
+    </main>
+  </ng-template>
 </div>

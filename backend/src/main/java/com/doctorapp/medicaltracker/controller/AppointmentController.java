@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.doctorapp.medicaltracker.dto.AppointmentStatusUpdateRequest;
 import com.doctorapp.medicaltracker.model.Appointment;
-import com.doctorapp.medicaltracker.model.AppointmentStatus;
 import com.doctorapp.medicaltracker.service.AppointmentService;
 
 import jakarta.validation.Valid;
@@ -73,8 +73,8 @@ public class AppointmentController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<Appointment> updateAppointmentStatus(
             @PathVariable Long id,
-            @RequestBody AppointmentStatus status) {
-        Appointment updatedAppointment = appointmentService.updateAppointmentStatus(id, status);
+            @Valid @RequestBody AppointmentStatusUpdateRequest request) {
+        Appointment updatedAppointment = appointmentService.updateAppointmentStatus(id, request.getStatus());
         return ResponseEntity.ok(updatedAppointment);
     }
 

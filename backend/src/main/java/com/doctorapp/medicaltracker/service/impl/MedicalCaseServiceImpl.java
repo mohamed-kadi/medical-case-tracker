@@ -3,6 +3,9 @@ package com.doctorapp.medicaltracker.service.impl;
 import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MedicalCaseServiceImpl implements MedicalCaseService {
 
     private static final String AUDIT_ENTITY_TYPE = "MEDICAL_CASE";
+    private static final String CASE_MUTATION_FORBIDDEN_MESSAGE = "Only doctors can modify medical cases";
+    private static final String CASE_ACCESS_FORBIDDEN_MESSAGE = "Only doctors can access medical cases";
 
     private final MedicalCaseRepository medicalCaseRepository;
     private final PatientService patientService;
@@ -37,6 +42,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Transactional
     public MedicalCase createCase(Long patientId, MedicalCase medicalCase) {
         try {
+            assertCurrentUserCanModifyCases();
             Patient patient = patientService.getPatientById(patientId);
             
             // Check if patient is active
@@ -72,7 +78,8 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Override
     @Transactional(readOnly = true)
     public MedicalCase getCaseById(Long id) {
-        MedicalCase medicalCase = medicalCaseRepository.findById(id)
+        assertCurrentUserCanAccessCases();
+        MedicalCase medicalCase = medicalCaseRepository.findByIdWithPatient(id)
                 .orElseThrow(() -> { 
                     log.error("Medical case not found with ID: {}", id);
                     return new MedicalCaseNotFoundException(id);
@@ -85,6 +92,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Transactional(readOnly = true)
     public List<MedicalCase> getCasesByPatientId(Long patientId) {
         try {
+            assertCurrentUserCanAccessCases();
             // First verify the patient exists
             patientService.getPatientById(patientId); // This will throw PatientNotFoundException if not found
             List<MedicalCase> cases = medicalCaseRepository.findByPatientId(patientId);
@@ -114,6 +122,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Transactional(readOnly = true)
     public List<MedicalCase> getActivePatientCases(Long patientId) {
         try {
+            assertCurrentUserCanAccessCases();
             patientService.getPatientById(patientId);
             List<MedicalCase> activeCases = medicalCaseRepository.findByPatientIdAndStatus(patientId, CaseStatus.IN_PROGRESS);
             log.info("Retrieved {} active cases for patient ID: {}", activeCases.size(), patientId);
@@ -138,6 +147,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Transactional
     public MedicalCase updateCase(Long id, MedicalCase caseDetails) {
         try {
+            assertCurrentUserCanModifyCases();
             MedicalCase existingCase = getCaseById(id);
             if (caseDetails == null) {
                 return existingCase;
@@ -179,6 +189,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Override
     public MedicalCase updateCaseStatus(Long id, CaseStatus newStatus) {
         try {
+            assertCurrentUserCanModifyCases();
             if (newStatus == null) {
                 throw new IllegalArgumentException("New status is required");
             }
@@ -236,6 +247,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     @Override
     public void deleteCase(Long id) {
         try {
+            assertCurrentUserCanModifyCases();
             MedicalCase medicalCase = getCaseById(id);
             if (medicalCase.getStatus() == CaseStatus.IN_PROGRESS) {
                 throw new IllegalStateException("Cannot delete case in progress");
@@ -263,8 +275,37 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public MedicalCase getMedicalCase(Long caseId) {
         return getCaseById(caseId);
+    }
+
+    private void assertCurrentUserCanModifyCases() {
+        assertCurrentUserCanAccessCases(CASE_MUTATION_FORBIDDEN_MESSAGE);
+    }
+
+    private void assertCurrentUserCanAccessCases() {
+        assertCurrentUserCanAccessCases(CASE_ACCESS_FORBIDDEN_MESSAGE);
+    }
+
+    private void assertCurrentUserCanAccessCases(String message) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return;
+        }
+
+        if (hasAuthority(authentication, "ROLE_DOCTOR")) {
+            return;
+        }
+
+        throw new AccessDeniedException(message);
+    }
+
+    private boolean hasAuthority(Authentication authentication, String authority) {
+        return authentication.getAuthorities()
+                .stream()
+                .anyMatch(grantedAuthority -> authority.equals(grantedAuthority.getAuthority()));
     }
 
     

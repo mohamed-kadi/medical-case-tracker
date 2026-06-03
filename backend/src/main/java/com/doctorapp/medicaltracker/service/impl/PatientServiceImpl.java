@@ -1,5 +1,6 @@
 package com.doctorapp.medicaltracker.service.impl;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -34,6 +35,7 @@ public class PatientServiceImpl implements PatientService {
     private static final Logger log = LoggerFactory.getLogger(PatientServiceImpl.class);
     private static final String ACCESS_DENIED_MESSAGE = "You are not allowed to access this patient";
     private static final String AUDIT_ENTITY_TYPE = "PATIENT";
+    private static final String PATIENT_NUMBER_PREFIX = "MT";
 
     private final MedicalCaseRepository medicalCaseRepository;
     private final PatientRepository patientRepository;
@@ -45,9 +47,9 @@ public class PatientServiceImpl implements PatientService {
     public List<Patient> getAllPatients() {
         AccessScope accessScope = getAccessScope();
         return switch (accessScope.role()) {
-            case ADMIN_OR_SYSTEM -> patientRepository.findAll();
+            case ADMIN_OR_SYSTEM -> redactPatients(patientRepository.findAll(), accessScope);
             case DOCTOR -> patientRepository.findByAssignedDoctorUsername(accessScope.username());
-            case STAFF -> patientRepository.findByAssignedStaffUsername(accessScope.username());
+            case FRONT_DESK -> redactPatients(patientRepository.findAll(), accessScope);
             case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
         };
     }
@@ -58,24 +60,19 @@ public class PatientServiceImpl implements PatientService {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new PatientNotFoundException(id));
         assertCurrentUserCanAccessPatient(patient);
-        return patient;
+        return redactPatient(patient, getAccessScope());
     }
 
     @Override
     public void assertCurrentUserCanAccessPatient(Patient patient) {
         AccessScope accessScope = getAccessScope();
 
-        if (accessScope.role() == AccessRole.ADMIN_OR_SYSTEM) {
+        if (accessScope.role() == AccessRole.ADMIN_OR_SYSTEM || accessScope.role() == AccessRole.FRONT_DESK) {
             return;
         }
 
         if (accessScope.role() == AccessRole.DOCTOR
                 && accessScope.username().equals(patient.getAssignedDoctorUsername())) {
-            return;
-        }
-
-        if (accessScope.role() == AccessRole.STAFF
-                && accessScope.username().equals(patient.getAssignedStaffUsername())) {
             return;
         }
 
@@ -93,13 +90,15 @@ public class PatientServiceImpl implements PatientService {
         AccessScope accessScope = getAccessScope();
 
         return switch (accessScope.role()) {
-            case ADMIN_OR_SYSTEM -> patientRepository.findByLastNameContainingIgnoreCase(normalizedLastName);
+            case ADMIN_OR_SYSTEM -> redactPatients(
+                    patientRepository.findByLastNameContainingIgnoreCase(normalizedLastName),
+                    accessScope);
             case DOCTOR -> patientRepository.findByLastNameContainingIgnoreCaseAndAssignedDoctorUsername(
                     normalizedLastName,
                     accessScope.username());
-            case STAFF -> patientRepository.findByLastNameContainingIgnoreCaseAndAssignedStaffUsername(
-                    normalizedLastName,
-                    accessScope.username());
+            case FRONT_DESK -> redactPatients(
+                    patientRepository.findByLastNameContainingIgnoreCase(normalizedLastName),
+                    accessScope);
             case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
         };
     }
@@ -110,7 +109,11 @@ public class PatientServiceImpl implements PatientService {
             throw new IllegalStateException("Email is already taken:" + patient.getEmail());
         }
         validatePatient(patient);
-        applyAssignmentsForCreator(patient);
+        patient.setPatientNumber(generatePatientNumber());
+        if (getAccessScope().role() == AccessRole.FRONT_DESK) {
+            patient.setMedicalHistory(null);
+        }
+        applyRegistrationForCreator(patient);
         Patient savedPatient = patientRepository.save(patient);
         auditEventService.recordEvent(
                 AUDIT_ENTITY_TYPE,
@@ -118,36 +121,38 @@ public class PatientServiceImpl implements PatientService {
                 "PATIENT_CREATED",
                 "status=" + savedPatient.getStatus()
                         + ",doctor=" + valueOrUnassigned(savedPatient.getAssignedDoctorUsername())
-                        + ",staff=" + valueOrUnassigned(savedPatient.getAssignedStaffUsername()));
-        return savedPatient;
+                        + ",frontDesk=" + valueOrUnassigned(savedPatient.getAssignedFrontDeskUsername())
+                        + ",registeredBy=" + valueOrUnassigned(savedPatient.getRegisteredByUsername())
+                        + ",patientNumber=" + savedPatient.getPatientNumber());
+        return redactPatient(savedPatient, getAccessScope());
     }
 
     @Override
     public Patient updatePatient(Long id, Patient patientDetails) {
-        Patient existingPatient = getPatientById(id);
+        Patient existingPatient = loadMutablePatient(id);
         validatePatient(patientDetails);
 
         try {
-            updatePatientFields(existingPatient, patientDetails, canManageAssignments());
+            updatePatientFields(existingPatient, patientDetails, canManageAssignments(), canManageClinicalDetails());
             Patient savedPatient = patientRepository.save(existingPatient);
             auditEventService.recordEvent(
                     AUDIT_ENTITY_TYPE,
                     savedPatient.getId(),
                     "PATIENT_UPDATED",
                     "status=" + savedPatient.getStatus());
-            return savedPatient;
+            return redactPatient(savedPatient, getAccessScope());
         } catch (DataIntegrityViolationException exception) {
             throw new IllegalStateException("Email is already taken:" + patientDetails.getEmail());
         }
     }
 
     @Override
-    public Patient assignPatient(Long id, String doctorUsername, String staffUsername) {
+    public Patient assignPatient(Long id, String doctorUsername, String frontDeskUsername) {
         Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new PatientNotFoundException(id));
 
         patient.setAssignedDoctorUsername(resolveAndValidateAssignee(doctorUsername, UserRole.DOCTOR));
-        patient.setAssignedStaffUsername(resolveAndValidateAssignee(staffUsername, UserRole.STAFF));
+        patient.setAssignedFrontDeskUsername(resolveAndValidateAssignee(frontDeskUsername, UserRole.FRONT_DESK));
 
         Patient savedPatient = patientRepository.save(patient);
         auditEventService.recordEvent(
@@ -155,22 +160,29 @@ public class PatientServiceImpl implements PatientService {
                 savedPatient.getId(),
                 "PATIENT_ASSIGNED",
                 "doctor=" + valueOrUnassigned(savedPatient.getAssignedDoctorUsername())
-                        + ",staff=" + valueOrUnassigned(savedPatient.getAssignedStaffUsername()));
-        return savedPatient;
+                        + ",frontDesk=" + valueOrUnassigned(savedPatient.getAssignedFrontDeskUsername()));
+        return redactPatient(savedPatient, getAccessScope());
     }
 
-    private void updatePatientFields(Patient existingPatient, Patient patientDetails, boolean includeAssignments) {
+    private void updatePatientFields(
+            Patient existingPatient,
+            Patient patientDetails,
+            boolean includeAssignments,
+            boolean includeClinicalDetails) {
         existingPatient.setFirstName(patientDetails.getFirstName());
         existingPatient.setLastName(patientDetails.getLastName());
         existingPatient.setDateOfBirth(patientDetails.getDateOfBirth());
         existingPatient.setEmail(patientDetails.getEmail());
         existingPatient.setPhoneNumber(patientDetails.getPhoneNumber());
-        existingPatient.setMedicalHistory(patientDetails.getMedicalHistory());
         existingPatient.setStatus(patientDetails.getStatus());
+
+        if (includeClinicalDetails) {
+            existingPatient.setMedicalHistory(patientDetails.getMedicalHistory());
+        }
 
         if (includeAssignments) {
             existingPatient.setAssignedDoctorUsername(patientDetails.getAssignedDoctorUsername());
-            existingPatient.setAssignedStaffUsername(patientDetails.getAssignedStaffUsername());
+            existingPatient.setAssignedFrontDeskUsername(patientDetails.getAssignedFrontDeskUsername());
         }
     }
 
@@ -179,7 +191,7 @@ public class PatientServiceImpl implements PatientService {
         if (newStatus == null) {
             throw new IllegalArgumentException("New status cannot be null");
         }
-        Patient patient = getPatientById(id);
+        Patient patient = loadMutablePatient(id);
         PatientStatus previousStatus = patient.getStatus();
 
         if (!isValidPatientStatusTransition(previousStatus, newStatus)) {
@@ -218,7 +230,7 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     public void deletePatient(Long id) {
-        Patient patient = getPatientById(id);
+        Patient patient = loadMutablePatient(id);
         PatientStatus previousStatus = patient.getStatus();
         patient.setStatus(PatientStatus.ARCHIVED);
         patientRepository.save(patient);
@@ -263,17 +275,87 @@ public class PatientServiceImpl implements PatientService {
         return normalizedUsername;
     }
 
-    private void applyAssignmentsForCreator(Patient patient) {
+    private void applyRegistrationForCreator(Patient patient) {
         AccessScope accessScope = getAccessScope();
+        patient.setRegisteredByUsername(accessScope.username().isBlank() ? null : accessScope.username());
+
         if (accessScope.role() == AccessRole.DOCTOR) {
             patient.setAssignedDoctorUsername(accessScope.username());
-        } else if (accessScope.role() == AccessRole.STAFF) {
-            patient.setAssignedStaffUsername(accessScope.username());
+            patient.setAssignedFrontDeskUsername(null);
+        } else if (accessScope.role() == AccessRole.FRONT_DESK) {
+            patient.setAssignedFrontDeskUsername(accessScope.username());
+            patient.setAssignedDoctorUsername(resolveSoleDoctorUsername());
+        } else {
+            patient.setAssignedDoctorUsername(null);
+            patient.setAssignedFrontDeskUsername(null);
         }
+    }
+
+    private String resolveSoleDoctorUsername() {
+        List<User> enabledDoctors = userRepository.findByRoleOrderByUsernameAsc(UserRole.DOCTOR)
+                .stream()
+                .filter(User::isEnabled)
+                .toList();
+        return enabledDoctors.size() == 1 ? enabledDoctors.get(0).getUsername() : null;
+    }
+
+    private Patient loadMutablePatient(Long id) {
+        Patient patient = patientRepository.findById(id)
+                .orElseThrow(() -> new PatientNotFoundException(id));
+        assertCurrentUserCanAccessPatient(patient);
+        return patient;
     }
 
     private boolean canManageAssignments() {
         return getAccessScope().role() == AccessRole.ADMIN_OR_SYSTEM;
+    }
+
+    private boolean canManageClinicalDetails() {
+        return getAccessScope().role() == AccessRole.DOCTOR;
+    }
+
+    private String generatePatientNumber() {
+        String prefix = PATIENT_NUMBER_PREFIX + "-" + LocalDate.now().getYear() + "-";
+        long nextSequence = patientRepository.countByPatientNumberStartingWith(prefix) + 1;
+        String patientNumber = formatPatientNumber(prefix, nextSequence);
+        while (patientRepository.existsByPatientNumber(patientNumber)) {
+            nextSequence++;
+            patientNumber = formatPatientNumber(prefix, nextSequence);
+        }
+        return patientNumber;
+    }
+
+    private String formatPatientNumber(String prefix, long sequence) {
+        return prefix + String.format("%06d", sequence);
+    }
+
+    private List<Patient> redactPatients(List<Patient> patients, AccessScope accessScope) {
+        return patients.stream()
+                .map(patient -> redactPatient(patient, accessScope))
+                .toList();
+    }
+
+    private Patient redactPatient(Patient patient, AccessScope accessScope) {
+        if (accessScope.role() == AccessRole.DOCTOR) {
+            return patient;
+        }
+
+        Patient redacted = new Patient();
+        redacted.setId(patient.getId());
+        redacted.setPatientNumber(patient.getPatientNumber());
+        redacted.setRegisteredByUsername(patient.getRegisteredByUsername());
+        redacted.setFirstName(patient.getFirstName());
+        redacted.setLastName(patient.getLastName());
+        redacted.setDateOfBirth(patient.getDateOfBirth());
+        redacted.setEmail(patient.getEmail());
+        redacted.setPhoneNumber(patient.getPhoneNumber());
+        redacted.setAssignedDoctorUsername(patient.getAssignedDoctorUsername());
+        redacted.setAssignedFrontDeskUsername(patient.getAssignedFrontDeskUsername());
+        redacted.setStatus(patient.getStatus());
+        redacted.setCreatedAt(patient.getCreatedAt());
+        redacted.setUpdatedAt(patient.getUpdatedAt());
+        redacted.setVersion(patient.getVersion());
+        return redacted;
     }
 
     private String valueOrUnassigned(String value) {
@@ -296,8 +378,8 @@ public class PatientServiceImpl implements PatientService {
         if (hasAuthority(authentication, "ROLE_DOCTOR")) {
             return new AccessScope(authentication.getName(), AccessRole.DOCTOR);
         }
-        if (hasAuthority(authentication, "ROLE_STAFF")) {
-            return new AccessScope(authentication.getName(), AccessRole.STAFF);
+        if (hasAuthority(authentication, "ROLE_FRONT_DESK")) {
+            return new AccessScope(authentication.getName(), AccessRole.FRONT_DESK);
         }
         return new AccessScope(authentication.getName(), AccessRole.DENIED);
     }
@@ -311,7 +393,7 @@ public class PatientServiceImpl implements PatientService {
     private enum AccessRole {
         ADMIN_OR_SYSTEM,
         DOCTOR,
-        STAFF,
+        FRONT_DESK,
         DENIED
     }
 

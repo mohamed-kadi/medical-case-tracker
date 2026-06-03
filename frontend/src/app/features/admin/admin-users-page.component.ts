@@ -39,7 +39,7 @@ import { I18nService } from '../../core/services/i18n.service';
           {{ i18n.t('admin.users.role') }}
           <select formControlName="role">
             <option value="DOCTOR">{{ i18n.t('admin.users.role.doctor') }}</option>
-            <option value="STAFF">{{ i18n.t('admin.users.role.staff') }}</option>
+            <option value="FRONT_DESK">{{ i18n.t('admin.users.role.frontDesk') }}</option>
           </select>
         </label>
 
@@ -61,7 +61,7 @@ import { I18nService } from '../../core/services/i18n.service';
             <select [value]="directoryRoleFilter" (change)="onDirectoryRoleChange($any($event.target).value)">
               <option value="ALL">{{ i18n.t('admin.users.directory.roleFilter.all') }}</option>
               <option value="DOCTOR">{{ i18n.t('admin.users.role.doctor') }}</option>
-              <option value="STAFF">{{ i18n.t('admin.users.role.staff') }}</option>
+              <option value="FRONT_DESK">{{ i18n.t('admin.users.role.frontDesk') }}</option>
             </select>
           </label>
 
@@ -361,7 +361,7 @@ export class AdminUsersPageComponent implements OnInit {
   }
 
   private parseDirectoryRoleFilter(value: string): 'ALL' | InternalUserRole {
-    if (value === 'DOCTOR' || value === 'STAFF') {
+    if (value === 'DOCTOR' || value === 'FRONT_DESK') {
       return value;
     }
 

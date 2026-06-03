@@ -60,7 +60,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, String>> handleAccessDeniedException(AccessDeniedException ex) {
         Map<String, String> error = new HashMap<>();
-        error.put("error", message("error.access.denied"));
+        String reason = ex.getMessage();
+        if (reason == null || reason.isBlank() || "Access is denied".equalsIgnoreCase(reason.trim())) {
+            reason = message("error.access.denied");
+        }
+        error.put("error", reason);
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 

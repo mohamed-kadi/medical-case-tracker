@@ -13,7 +13,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data // Lombok: generates getters, setters, toString, etc.
 @NoArgsConstructor // Generates empty constructor
@@ -25,6 +27,12 @@ public class Patient {
     @Id // Primary key
     @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto-increment
     private Long id;
+
+    @Column(name = "patient_number", unique = true, length = 32)
+    private String patientNumber;
+
+    @Column(name = "registered_by_username", length = 100, updatable = false)
+    private String registeredByUsername;
 
     @NotBlank(message = "First name is required")
     @Column(name = "first_name", nullable = false)
@@ -51,8 +59,8 @@ public class Patient {
     @Column(name = "assigned_doctor_username", length = 100)
     private String assignedDoctorUsername;
 
-    @Column(name = "assigned_staff_username", length = 100)
-    private String assignedStaffUsername;
+    @Column(name = "assigned_front_desk_username", length = 100)
+    private String assignedFrontDeskUsername;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -65,10 +73,14 @@ public class Patient {
     private LocalDateTime updatedAt;
 
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MedicalCase> medicalCases = new ArrayList<>();
 
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Appointment> appointments = new ArrayList<>();
 

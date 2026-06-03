@@ -37,17 +37,17 @@ describe('PatientService', () => {
         email: 'john@clinic.com',
         status: 'ACTIVE',
         assignedDoctorUsername: 'doctorOne',
-        assignedStaffUsername: null
+        assignedFrontDeskUsername: null
       }
     ]);
   });
 
   it('should call admin assignment endpoint', () => {
     service
-      .assignPatient(10, { doctorUsername: 'doctorOne', staffUsername: 'staffOne' })
+      .assignPatient(10, { doctorUsername: 'doctorOne', frontDeskUsername: 'staffOne' })
       .subscribe((patient) => {
         expect(patient.assignedDoctorUsername).toBe('doctorOne');
-        expect(patient.assignedStaffUsername).toBe('staffOne');
+        expect(patient.assignedFrontDeskUsername).toBe('staffOne');
       });
 
     const request = httpMock.expectOne('http://localhost:8080/api/admin/patients/10/assignment');
@@ -59,7 +59,7 @@ describe('PatientService', () => {
       email: 'john@clinic.com',
       status: 'ACTIVE',
       assignedDoctorUsername: 'doctorOne',
-      assignedStaffUsername: 'staffOne'
+      assignedFrontDeskUsername: 'staffOne'
     });
   });
 

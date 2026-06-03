@@ -20,27 +20,17 @@ describe('DashboardPageComponent', () => {
       'getCurrentRole'
     ]);
     patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', [
-      'getVisiblePatients',
-      'assignPatient'
+      'getVisiblePatients'
     ]);
     appointmentServiceSpy = jasmine.createSpyObj<AppointmentService>('AppointmentService', [
-      'getUpcomingAppointments',
-      'createAppointment'
+      'getUpcomingAppointments'
     ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
 
     authServiceSpy.getCurrentUsername.and.returnValue('doctorOne');
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
+    patientServiceSpy.getVisiblePatients.and.returnValue(of([]));
     appointmentServiceSpy.getUpcomingAppointments.and.returnValue(of([]));
-    appointmentServiceSpy.createAppointment.and.returnValue(
-      of({
-        id: 99,
-        scheduledAt: '2030-01-02T14:00:00',
-        reason: 'Follow-up',
-        notes: null,
-        status: 'SCHEDULED'
-      })
-    );
     i18nServiceSpy.t.and.callFake((key: string) => key);
 
     await TestBed.configureTestingModule({
@@ -55,7 +45,7 @@ describe('DashboardPageComponent', () => {
     }).compileComponents();
   });
 
-  it('loads visible patients on init', () => {
+  it('loads visible patients and upcoming appointments for clinical users', () => {
     patientServiceSpy.getVisiblePatients.and.returnValue(
       of([
         {
@@ -65,101 +55,10 @@ describe('DashboardPageComponent', () => {
           email: 'john@clinic.com',
           status: 'ACTIVE',
           assignedDoctorUsername: 'doctorOne',
-          assignedStaffUsername: null
+          assignedFrontDeskUsername: null
         }
       ])
     );
-
-    const fixture = TestBed.createComponent(DashboardPageComponent);
-    fixture.detectChanges();
-    const component = fixture.componentInstance;
-
-    expect(patientServiceSpy.getVisiblePatients).toHaveBeenCalled();
-    expect(appointmentServiceSpy.getUpcomingAppointments).toHaveBeenCalled();
-    expect(component.patients.length).toBe(1);
-    expect(component.patients[0].id).toBe(10);
-    expect(component.isAdmin).toBeFalse();
-  });
-
-  it('shows team management quick action for admin users', () => {
-    authServiceSpy.getCurrentRole.and.returnValue('ADMIN');
-    patientServiceSpy.getVisiblePatients.and.returnValue(of([]));
-
-    const fixture = TestBed.createComponent(DashboardPageComponent);
-    fixture.detectChanges();
-
-    expect(appointmentServiceSpy.getUpcomingAppointments).not.toHaveBeenCalled();
-
-    const quickLinks = Array.from(
-      fixture.nativeElement.querySelectorAll('.quick-actions .quick-link'),
-      (element: Element) => element.textContent?.trim()
-    );
-    expect(quickLinks).toContain('dashboard.quick.team');
-    expect(quickLinks).toContain('dashboard.quick.audit');
-    expect(quickLinks).not.toContain('dashboard.quick.patients');
-    expect(quickLinks).not.toContain('dashboard.quick.newPatient');
-  });
-
-  it('hides team management quick action for non-admin users', () => {
-    authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
-    patientServiceSpy.getVisiblePatients.and.returnValue(of([]));
-
-    const fixture = TestBed.createComponent(DashboardPageComponent);
-    fixture.detectChanges();
-
-    const quickLinks = Array.from(
-      fixture.nativeElement.querySelectorAll('.quick-actions .quick-link'),
-      (element: Element) => element.textContent?.trim()
-    );
-    expect(quickLinks).not.toContain('dashboard.quick.team');
-    expect(quickLinks).not.toContain('dashboard.quick.audit');
-  });
-
-  it('sends assignment update when admin saves assignment', () => {
-    authServiceSpy.getCurrentRole.and.returnValue('ADMIN');
-    patientServiceSpy.getVisiblePatients.and.returnValue(
-      of([
-        {
-          id: 10,
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@clinic.com',
-          status: 'ACTIVE',
-          assignedDoctorUsername: null,
-          assignedStaffUsername: null
-        }
-      ])
-    );
-    patientServiceSpy.assignPatient.and.returnValue(
-      of({
-        id: 10,
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@clinic.com',
-        status: 'ACTIVE',
-        assignedDoctorUsername: 'doctorOne',
-        assignedStaffUsername: 'staffOne'
-      })
-    );
-
-    const fixture = TestBed.createComponent(DashboardPageComponent);
-    fixture.detectChanges();
-    const component = fixture.componentInstance;
-
-    component.updateDraft(10, 'doctorUsername', 'doctorOne');
-    component.updateDraft(10, 'staffUsername', 'staffOne');
-    component.saveAssignment(10);
-
-    expect(patientServiceSpy.assignPatient).toHaveBeenCalledWith(10, {
-      doctorUsername: 'doctorOne',
-      staffUsername: 'staffOne'
-    });
-    expect(component.patients[0].assignedDoctorUsername).toBe('doctorOne');
-    expect(component.patients[0].assignedStaffUsername).toBe('staffOne');
-  });
-
-  it('loads upcoming appointments on init', () => {
-    patientServiceSpy.getVisiblePatients.and.returnValue(of([]));
     appointmentServiceSpy.getUpcomingAppointments.and.returnValue(
       of([
         {
@@ -176,47 +75,76 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
+    expect(patientServiceSpy.getVisiblePatients).toHaveBeenCalled();
+    expect(appointmentServiceSpy.getUpcomingAppointments).toHaveBeenCalled();
+    expect(component.patients.length).toBe(1);
     expect(component.appointments.length).toBe(1);
-    expect(component.appointments[0].id).toBe(55);
+    expect(component.isAdmin).toBeFalse();
   });
 
-  it('creates appointment from dashboard form', () => {
-    patientServiceSpy.getVisiblePatients.and.returnValue(
-      of([
-        {
-          id: 10,
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@clinic.com',
-          status: 'ACTIVE',
-          assignedDoctorUsername: 'doctorOne',
-          assignedStaffUsername: null
-        }
-      ])
+  it('shows clinical workflow cards for doctors and front desk users', () => {
+    authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const cards = Array.from(
+      fixture.nativeElement.querySelectorAll('.workflow-card'),
+      (element: Element) => element.textContent?.trim()
     );
+
+    expect(cards.join(' ')).toContain('dashboard.path.intake.title');
+    expect(cards.join(' ')).toContain('dashboard.path.patients.title');
+    expect(cards.join(' ')).toContain('dashboard.path.schedule.title');
+  });
+
+  it('uses a doctor-specific dashboard title and compact role chip', () => {
+    authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const chip = fixture.nativeElement.querySelector('.role-chip') as HTMLElement;
+
+    expect(component.dashboardTitleKey).toBe('dashboard.title.doctor');
+    expect(component.dashboardDescriptionKey).toBe('dashboard.description.doctor');
+    expect(component.dashboardRoleClass).toBe('role-doctor');
+    expect(chip.textContent).toContain('roles.doctor');
+    expect(chip.textContent).not.toContain('dashboard.role');
+  });
+
+  it('uses a front-desk-specific dashboard title and theme', () => {
+    authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
 
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    component.appointmentForm.patchValue({
-      patientId: 10,
-      scheduledAt: '2030-01-02T14:00',
-      reason: 'Follow-up',
-      notes: 'Bring report'
-    });
-    component.createAppointment();
-
-    expect(appointmentServiceSpy.createAppointment).toHaveBeenCalledWith(10, {
-      scheduledAt: '2030-01-02T14:00:00',
-      reason: 'Follow-up',
-      notes: 'Bring report'
-    });
-    expect(component.appointments.length).toBe(1);
-    expect(component.appointments[0].id).toBe(99);
+    expect(component.dashboardTitleKey).toBe('dashboard.title.frontDesk');
+    expect(component.dashboardDescriptionKey).toBe('dashboard.description.frontDesk');
+    expect(component.dashboardRoleClass).toBe('role-front-desk');
+    expect(component.roleLabelKey).toBe('roles.frontDesk');
   });
 
-  it('does not create appointment for admin users', () => {
+  it('shows admin workflow cards and skips appointment loading for admin users', () => {
+    authServiceSpy.getCurrentRole.and.returnValue('ADMIN');
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    expect(appointmentServiceSpy.getUpcomingAppointments).not.toHaveBeenCalled();
+
+    const cards = Array.from(
+      fixture.nativeElement.querySelectorAll('.workflow-card'),
+      (element: Element) => element.textContent?.trim()
+    );
+    expect(cards.join(' ')).toContain('dashboard.path.team.title');
+    expect(cards.join(' ')).toContain('dashboard.path.assignments.title');
+    expect(cards.join(' ')).toContain('dashboard.path.audit.title');
+    expect(cards.join(' ')).not.toContain('dashboard.path.intake.title');
+  });
+
+  it('summarizes assignment gaps for admin users', () => {
     authServiceSpy.getCurrentRole.and.returnValue('ADMIN');
     patientServiceSpy.getVisiblePatients.and.returnValue(
       of([
@@ -227,7 +155,16 @@ describe('DashboardPageComponent', () => {
           email: 'john@clinic.com',
           status: 'ACTIVE',
           assignedDoctorUsername: null,
-          assignedStaffUsername: null
+          assignedFrontDeskUsername: null
+        },
+        {
+          id: 11,
+          firstName: 'Jane',
+          lastName: 'Roe',
+          email: 'jane@clinic.com',
+          status: 'ACTIVE',
+          assignedDoctorUsername: 'doctorOne',
+          assignedFrontDeskUsername: 'frontOne'
         }
       ])
     );
@@ -236,14 +173,17 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    component.appointmentForm.patchValue({
-      patientId: 10,
-      scheduledAt: '2030-01-02T14:00',
-      reason: 'Follow-up',
-      notes: 'Bring report'
-    });
-    component.createAppointment();
+    expect(component.unassignedDoctorCount).toBe(1);
+    expect(component.unassignedFrontDeskCount).toBe(1);
+  });
 
-    expect(appointmentServiceSpy.createAppointment).not.toHaveBeenCalled();
+  it('links admin users to the dedicated assignments workspace', () => {
+    authServiceSpy.getCurrentRole.and.returnValue('ADMIN');
+
+    const fixture = TestBed.createComponent(DashboardPageComponent);
+    fixture.detectChanges();
+
+    const assignmentLink = fixture.nativeElement.querySelector('a[href="/admin/assignments"]');
+    expect(assignmentLink).not.toBeNull();
   });
 });

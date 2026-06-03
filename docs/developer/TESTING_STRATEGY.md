@@ -27,7 +27,7 @@
 ## Mandatory Coverage Areas
 
 - Role contract:
-  - current role behavior (`ADMIN`, `DOCTOR`, `STAFF`, `PATIENT`) remains stable
+  - current role behavior (`ADMIN`, `DOCTOR`, `FRONT_DESK`, `PATIENT`) remains stable
   - future role split (`SYSTEM_ADMIN`, `CLINIC_ADMIN`) must ship with migration and compatibility tests
 - Auth login/register:
   - validation errors

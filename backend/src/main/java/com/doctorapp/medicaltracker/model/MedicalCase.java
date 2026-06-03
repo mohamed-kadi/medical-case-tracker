@@ -4,14 +4,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @NoArgsConstructor
@@ -26,7 +27,9 @@ public class MedicalCase {
 
     // Links this case to a patient (Many cases can belong to one patient)
     //@NotNull(message = "Patient is required")
-    @JsonBackReference
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @ManyToOne(fetch = FetchType.LAZY)  // Loads patient data only when needed
     @JoinColumn(name = "patient_id", nullable = false)  // Foreign key column
     private Patient patient;
@@ -46,6 +49,8 @@ public class MedicalCase {
     private CaseStatus status = CaseStatus.OPEN;
 
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @OneToMany(mappedBy = "medicalCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MedicalImage> images = new ArrayList<>();;
 
