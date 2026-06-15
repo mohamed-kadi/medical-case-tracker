@@ -25,6 +25,7 @@ import com.doctorapp.medicaltracker.exception.InvalidCaseStatusException;
 import com.doctorapp.medicaltracker.exception.MedicalCaseNotFoundException;
 import com.doctorapp.medicaltracker.exception.PatientNotFoundException;
 import com.doctorapp.medicaltracker.exception.AppointmentNotFoundException;
+import com.doctorapp.medicaltracker.exception.BackupOperationException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
 import lombok.RequiredArgsConstructor;
@@ -109,6 +110,14 @@ public class GlobalExceptionHandler {
     }
 
     ////////////////////////////////// image handles
+
+    @ExceptionHandler(BackupOperationException.class)
+    public ResponseEntity<Map<String, String>> handleBackupOperationException(BackupOperationException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("message", ex.getMessage());
+        errorResponse.put("status", HttpStatus.BAD_REQUEST.toString());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
     
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleGenericException(RuntimeException ex) {

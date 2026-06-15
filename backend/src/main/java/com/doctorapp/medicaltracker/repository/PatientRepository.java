@@ -32,6 +32,8 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
 
     long countByPatientNumberStartingWith(String patientNumberPrefix);
 
+    Optional<Patient> findByPatientNumberIgnoreCase(String patientNumber);
+
     boolean existsByPatientNumber(String patientNumber);
 
     boolean existsByEmail(String email); // check if a patient with the given email exists

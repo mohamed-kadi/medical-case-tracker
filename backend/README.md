@@ -36,6 +36,37 @@ Meaning of those values:
 - `APP_BOOTSTRAP_ADMIN_USERNAME` (required only when bootstrap enabled)
 - `APP_BOOTSTRAP_ADMIN_EMAIL` (required only when bootstrap enabled)
 - `APP_BOOTSTRAP_ADMIN_PASSWORD` (required only when bootstrap enabled)
+- `APP_IMAGE_STORAGE_PATH` (optional, default: `./var/medical-images`)
+- `APP_BACKUP_STORAGE_PATH` (optional, default: `./var/backups`)
+- `APP_BACKUP_PG_DUMP_COMMAND` (optional, default: `pg_dump`)
+- `APP_BACKUP_PSQL_COMMAND` (optional, default: `psql`)
+
+Backup/restore requires PostgreSQL command-line tools:
+
+- `pg_dump` must be available to create backups.
+- `psql` must be available to restore backups.
+- If they are installed outside the system `PATH`, point `APP_BACKUP_PG_DUMP_COMMAND` and `APP_BACKUP_PSQL_COMMAND` to the correct executables.
+
+## Schema Migrations
+
+The backend uses Flyway for PostgreSQL schema changes in `dev` and `prod`.
+
+Migration files:
+
+- `src/main/resources/db/migration/V1__create_current_schema.sql`
+- `src/main/resources/db/migration/V2__adopt_existing_hibernate_schema.sql`
+
+Runtime behavior:
+
+- Flyway runs automatically before Hibernate validation.
+- Existing local databases without Flyway history are baselined, then the compatibility migration runs.
+- Hibernate uses `ddl-auto=validate` in `dev` and `prod`; it should not silently create or change tables.
+- The `test` profile disables Flyway and keeps H2 `create-drop` for fast repeatable tests.
+
+Operational rule:
+
+- Before running a new migration against real clinic data, create and download a backup ZIP from `/admin/backups`.
+- Do not edit production/offline clinic tables manually in pgAdmin unless you also document the equivalent migration.
 
 ## Local PostgreSQL Bootstrap (Dev)
 
@@ -106,6 +137,50 @@ Do not mix these paths:
 - `PUT /api/appointments/{id}`: update appointment details.
 - `PATCH /api/appointments/{id}/status`: update appointment status.
 - `DELETE /api/appointments/{id}`: delete appointment.
+
+## Patient Portal API
+
+- `GET /api/patient-portal/dashboard`: read-only dashboard for `PATIENT` accounts.
+- Portal access uses a verified `patient_account_links` record between the `users` account and the `patients` file.
+- The portal returns patient number/profile summary, assigned doctor/front desk usernames, and upcoming scheduled appointments.
+- The portal does not return clinical notes, medical history, cases, images, appointment notes, or audit data.
+- Public patient registration creates a login account only; clinic staff must verify and link it before patient file data is exposed.
+- Email/phone matching may be used as a staff search aid later, but the backend must only expose portal data through a `VERIFIED` link.
+
+## Patient Account Link API
+
+- `GET /api/patient-account-links/patient?patientNumber=...`: staff lookup for a clinic patient file and current verified link status.
+- `GET /api/patient-account-links/accounts?query=...`: staff search for enabled `PATIENT` portal accounts by username/email.
+- `POST /api/patient-account-links/verify`: staff action that creates or activates a `VERIFIED` link.
+- Access is limited to `ADMIN` and `FRONT_DESK`.
+- The current phase enforces one verified portal account per patient file and one verified patient file per portal account.
+
+## Backup and Restore API
+
+Admin route in the frontend:
+
+- `/admin/backups`
+
+Backend endpoints:
+
+- `GET /api/admin/backups/status`: returns backup folder, image folder, required restore confirmation, and latest backup summary.
+- `GET /api/admin/backups`: lists backup ZIP files in the configured backup folder.
+- `POST /api/admin/backups`: creates a ZIP backup.
+- `GET /api/admin/backups/{fileName}`: downloads one backup ZIP.
+- `POST /api/admin/backups/restore`: restores from a multipart ZIP upload and requires confirmation value `RESTORE`.
+
+Backup contents:
+
+- `database.sql` generated with `pg_dump`
+- `manifest.json`
+- `medical-images/**` copied from `APP_IMAGE_STORAGE_PATH`
+
+Restore safety behavior:
+
+- Restore is destructive and replaces current database data plus local image files.
+- The backend creates a pre-restore safety backup before applying the uploaded ZIP.
+- After restore, `medical_images.path` values are rewritten to the current `APP_IMAGE_STORAGE_PATH`.
+- Keep downloaded ZIP backups on external storage; the local backup folder alone is not enough if the clinic computer disk fails.
 
 Bootstrap admin (optional):
 

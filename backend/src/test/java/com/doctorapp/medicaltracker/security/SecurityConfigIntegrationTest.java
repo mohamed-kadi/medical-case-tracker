@@ -92,6 +92,51 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    void patientPortalEndpointShouldRejectAnonymousAccess() throws Exception {
+        mockMvc.perform(get("/api/patient-portal/dashboard"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "doctorUser", roles = "DOCTOR")
+    void patientPortalEndpointShouldRejectDoctorRole() throws Exception {
+        mockMvc.perform(get("/api/patient-portal/dashboard"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "doctorUser", roles = "DOCTOR")
+    void patientAccountLinkEndpointShouldRejectDoctorRole() throws Exception {
+        mockMvc.perform(get("/api/patient-account-links/accounts")
+                .param("query", "patient"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "patientUser", roles = "PATIENT")
+    void patientAccountLinkEndpointShouldRejectPatientRole() throws Exception {
+        mockMvc.perform(get("/api/patient-account-links/accounts")
+                .param("query", "patient"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void patientAccountLinkEndpointShouldAllowFrontDeskRole() throws Exception {
+        mockMvc.perform(get("/api/patient-account-links/accounts")
+                .param("query", "patient"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "adminUser", roles = "ADMIN")
+    void patientAccountLinkEndpointShouldAllowAdminRole() throws Exception {
+        mockMvc.perform(get("/api/patient-account-links/accounts")
+                .param("query", "patient"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @WithMockUser(username = "adminUser", roles = "ADMIN")
     void appointmentsEndpointShouldRejectAdminRole() throws Exception {
         mockMvc.perform(get("/api/appointments/upcoming"))
