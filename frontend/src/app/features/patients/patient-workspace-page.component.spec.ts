@@ -45,12 +45,17 @@ describe('PatientWorkspacePageComponent', () => {
     patientServiceSpy.getPatientById.and.returnValue(
       of({
         id: 20,
+        patientNumber: 'MT-2026-000020',
         firstName: 'John',
         lastName: 'Doe',
         email: 'john@clinic.com',
+        phoneNumber: '+212 600 000 000',
+        dateOfBirth: '1990-01-01',
         status: 'ACTIVE',
         assignedDoctorUsername: 'doctor1',
-        assignedFrontDeskUsername: 'staff1'
+        assignedFrontDeskUsername: 'staff1',
+        registeredByUsername: 'front1',
+        createdAt: '2030-01-01T08:00:00'
       })
     );
 
@@ -176,6 +181,27 @@ describe('PatientWorkspacePageComponent', () => {
     });
     expect(component.appointments.length).toBe(2);
     expect(component.successMessage).toBe('appointments.create.success');
+  });
+
+  it('renders the patient card and prints it', () => {
+    const printDocument = jasmine.createSpyObj<Document>('Document', ['open', 'write', 'close']);
+    const printWindow = jasmine.createSpyObj<Window>('Window', ['focus', 'print']);
+    Object.defineProperty(printWindow, 'document', { value: printDocument });
+    spyOn(window, 'open').and.returnValue(printWindow);
+
+    const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    const component = fixture.componentInstance;
+    component.printPatientCard();
+
+    expect(text).toContain('MT-2026-000020');
+    expect(text).toContain('John Doe');
+    expect(window.open).toHaveBeenCalled();
+    expect(printDocument.write).toHaveBeenCalledWith(jasmine.stringContaining('MT-2026-000020'));
+    expect(printDocument.write).toHaveBeenCalledWith(jasmine.stringContaining('John Doe'));
+    expect(printWindow.print).toHaveBeenCalled();
   });
 
   it('deletes appointment and updates list', () => {

@@ -15,7 +15,7 @@
           *ngFor="let item of workspaceNavItems()"
           [routerLink]="item.route"
           routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: !item.prefixMatch }"
+          [routerLinkActiveOptions]="{ exact: true }"
           [class.active-prefix]="item.prefixMatch && isRoutePrefix(item.route)"
         >
           <span class="nav-icon">{{ item.icon }}</span>

@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
@@ -9,6 +10,10 @@ import { Patient } from '../../core/models/patient.model';
 import { PatientService } from '../../core/services/patient.service';
 import { Appointment } from '../../core/models/appointment.model';
 import { AppointmentService } from '../../core/services/appointment.service';
+import { AdminUserResponse } from '../../core/models/admin-user.model';
+import { AdminUserService } from '../../core/services/admin-user.service';
+import { AuditEvent } from '../../core/models/audit-event.model';
+import { AuditService } from '../../core/services/audit.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -28,7 +33,7 @@ import { AppointmentService } from '../../core/services/appointment.service';
         </span>
       </header>
 
-      <section class="metric-grid">
+      <section class="metric-grid" *ngIf="!isAdmin">
         <article class="metric-card">
           <span>{{ i18n.t('dashboard.metrics.visiblePatients') }}</span>
           <strong>{{ patients.length }}</strong>
@@ -37,21 +42,39 @@ import { AppointmentService } from '../../core/services/appointment.service';
           <span>{{ i18n.t('dashboard.metrics.upcomingAppointments') }}</span>
           <strong>{{ appointments.length }}</strong>
         </article>
-        <article class="metric-card" *ngIf="isAdmin">
-          <span>{{ i18n.t('dashboard.metrics.unassignedDoctor') }}</span>
-          <strong>{{ unassignedDoctorCount }}</strong>
+      </section>
+
+      <section class="metric-grid admin-metrics" *ngIf="isAdmin">
+        <article class="metric-card">
+          <span>{{ i18n.t('dashboard.adminMetrics.totalPatients') }}</span>
+          <strong>{{ patients.length }}</strong>
         </article>
-        <article class="metric-card" *ngIf="isAdmin">
-          <span>{{ i18n.t('dashboard.metrics.unassignedFrontDesk') }}</span>
-          <strong>{{ unassignedFrontDeskCount }}</strong>
+        <article class="metric-card">
+          <span>{{ i18n.t('dashboard.adminMetrics.enabledDoctors') }}</span>
+          <strong>{{ enabledDoctorCount }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>{{ i18n.t('dashboard.adminMetrics.enabledFrontDesk') }}</span>
+          <strong>{{ enabledFrontDeskCount }}</strong>
+        </article>
+        <article class="metric-card attention">
+          <span>{{ i18n.t('dashboard.adminMetrics.assignmentGaps') }}</span>
+          <strong>{{ assignmentGapCount }}</strong>
+        </article>
+        <article class="metric-card">
+          <span>{{ i18n.t('dashboard.adminMetrics.inactiveUsers') }}</span>
+          <strong>{{ inactiveInternalUserCount }}</strong>
         </article>
       </section>
 
       <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
       <p class="feedback error" *ngIf="appointmentsError">{{ appointmentsError }}</p>
-      <p class="loading" *ngIf="isLoading || isAppointmentsLoading">{{ i18n.t('dashboard.loading') }}</p>
+      <p class="feedback error" *ngIf="adminOverviewError">{{ adminOverviewError }}</p>
+      <p class="loading" *ngIf="isLoading || isAppointmentsLoading || isAdminOverviewLoading">
+        {{ i18n.t('dashboard.loading') }}
+      </p>
 
-      <section class="workflow-grid" *ngIf="isClinicalUser">
+      <section class="workflow-grid" *ngIf="isDoctor">
         <a class="workflow-card primary" routerLink="/patients/new">
           <span>{{ i18n.t('dashboard.path.intake.kicker') }}</span>
           <strong>{{ i18n.t('dashboard.path.intake.title') }}</strong>
@@ -69,6 +92,24 @@ import { AppointmentService } from '../../core/services/appointment.service';
         </a>
       </section>
 
+      <section class="workflow-grid" *ngIf="isFrontDesk">
+        <a class="workflow-card primary" routerLink="/patients/new">
+          <span>{{ i18n.t('dashboard.path.intake.kicker') }}</span>
+          <strong>{{ i18n.t('dashboard.path.intake.title') }}</strong>
+          <small>{{ i18n.t('dashboard.path.intake.description') }}</small>
+        </a>
+        <a class="workflow-card" routerLink="/patients">
+          <span>{{ i18n.t('dashboard.path.patients.kicker') }}</span>
+          <strong>{{ i18n.t('dashboard.path.patients.title') }}</strong>
+          <small>{{ i18n.t('dashboard.path.patients.description') }}</small>
+        </a>
+        <a class="workflow-card" routerLink="/patient-links">
+          <span>{{ i18n.t('dashboard.path.patientLinks.kicker') }}</span>
+          <strong>{{ i18n.t('dashboard.path.patientLinks.title') }}</strong>
+          <small>{{ i18n.t('dashboard.path.patientLinks.description') }}</small>
+        </a>
+      </section>
+
       <section class="workflow-grid" *ngIf="isAdmin">
         <a class="workflow-card primary" routerLink="/admin/users">
           <span>{{ i18n.t('dashboard.path.team.kicker') }}</span>
@@ -80,6 +121,11 @@ import { AppointmentService } from '../../core/services/appointment.service';
           <strong>{{ i18n.t('dashboard.path.assignments.title') }}</strong>
           <small>{{ i18n.t('dashboard.path.assignments.description') }}</small>
         </a>
+        <a class="workflow-card" routerLink="/patient-links">
+          <span>{{ i18n.t('dashboard.path.patientLinks.kicker') }}</span>
+          <strong>{{ i18n.t('dashboard.path.patientLinks.title') }}</strong>
+          <small>{{ i18n.t('dashboard.path.patientLinks.description') }}</small>
+        </a>
         <a class="workflow-card" routerLink="/admin/audit">
           <span>{{ i18n.t('dashboard.path.audit.kicker') }}</span>
           <strong>{{ i18n.t('dashboard.path.audit.title') }}</strong>
@@ -88,7 +134,7 @@ import { AppointmentService } from '../../core/services/appointment.service';
       </section>
 
       <section class="dashboard-grid">
-        <article class="panel schedule-panel" *ngIf="isClinicalUser">
+        <article class="panel schedule-panel" *ngIf="isDoctor">
           <header class="panel-header">
             <div>
               <h2>{{ i18n.t('dashboard.schedule.title') }}</h2>
@@ -110,23 +156,83 @@ import { AppointmentService } from '../../core/services/appointment.service';
           </ng-template>
         </article>
 
-        <article class="panel admin-focus-panel" *ngIf="isAdmin">
+        <article class="panel admin-attention-panel" *ngIf="isAdmin">
           <header class="panel-header">
             <div>
-              <h2>{{ i18n.t('dashboard.adminFocus.title') }}</h2>
-              <p>{{ i18n.t('dashboard.adminFocus.description') }}</p>
+              <h2>{{ i18n.t('dashboard.adminAttention.title') }}</h2>
+              <p>{{ i18n.t('dashboard.adminAttention.description') }}</p>
             </div>
             <a routerLink="/admin/assignments">{{ i18n.t('dashboard.quick.assignments') }}</a>
           </header>
 
-          <div class="compact-list">
-            <article class="compact-item">
-              <strong>{{ i18n.t('dashboard.metrics.unassignedDoctor') }}</strong>
-              <span>{{ unassignedDoctorCount }}</span>
+          <div class="compact-list" *ngIf="assignmentQueuePreview.length > 0; else noAssignmentGaps">
+            <article
+              class="compact-item attention-item"
+              *ngFor="let patient of assignmentQueuePreview; trackBy: trackByPatientId"
+            >
+              <strong>{{ patient.lastName }}, {{ patient.firstName }}</strong>
+              <span>{{ patient.patientNumber || patient.email }}</span>
+              <small>
+                <ng-container *ngIf="!patient.assignedDoctorUsername">
+                  {{ i18n.t('dashboard.adminAttention.missingDoctor') }}
+                </ng-container>
+                <ng-container *ngIf="!patient.assignedDoctorUsername && !patient.assignedFrontDeskUsername">
+                  ·
+                </ng-container>
+                <ng-container *ngIf="!patient.assignedFrontDeskUsername">
+                  {{ i18n.t('dashboard.adminAttention.missingFrontDesk') }}
+                </ng-container>
+              </small>
             </article>
+          </div>
+
+          <ng-template #noAssignmentGaps>
+            <p class="empty">{{ i18n.t('dashboard.adminAttention.empty') }}</p>
+          </ng-template>
+        </article>
+
+        <article class="panel admin-audit-panel" *ngIf="isAdmin">
+          <header class="panel-header">
+            <div>
+              <h2>{{ i18n.t('dashboard.adminAudit.title') }}</h2>
+              <p>{{ i18n.t('dashboard.adminAudit.description') }}</p>
+            </div>
+            <a routerLink="/admin/audit">{{ i18n.t('dashboard.quick.audit') }}</a>
+          </header>
+
+          <div class="compact-list" *ngIf="recentAuditEvents.length > 0; else noRecentAudit">
+            <article class="compact-item" *ngFor="let event of recentAuditEvents; trackBy: trackByAuditEventId">
+              <strong>{{ event.action }}</strong>
+              <span>{{ event.actorUsername }} · {{ event.entityType }} #{{ event.entityId }}</span>
+              <small>{{ event.createdAt | date: 'medium' }}</small>
+            </article>
+          </div>
+
+          <ng-template #noRecentAudit>
+            <p class="empty">{{ i18n.t('dashboard.adminAudit.empty') }}</p>
+          </ng-template>
+        </article>
+
+        <article class="panel admin-system-panel" *ngIf="isAdmin">
+          <header class="panel-header">
+            <div>
+              <h2>{{ i18n.t('dashboard.adminSystem.title') }}</h2>
+              <p>{{ i18n.t('dashboard.adminSystem.description') }}</p>
+            </div>
+          </header>
+
+          <div class="system-list">
             <article class="compact-item">
-              <strong>{{ i18n.t('dashboard.metrics.unassignedFrontDesk') }}</strong>
-              <span>{{ unassignedFrontDeskCount }}</span>
+              <strong>{{ i18n.t('dashboard.adminSystem.database.title') }}</strong>
+              <span>{{ i18n.t('dashboard.adminSystem.database.description') }}</span>
+            </article>
+            <a class="compact-item system-link" routerLink="/admin/backups">
+              <strong>{{ i18n.t('dashboard.adminSystem.backup.title') }}</strong>
+              <span>{{ i18n.t('dashboard.adminSystem.backup.description') }}</span>
+            </a>
+            <article class="compact-item">
+              <strong>{{ i18n.t('dashboard.adminSystem.permissions.title') }}</strong>
+              <span>{{ i18n.t('dashboard.adminSystem.permissions.description') }}</span>
             </article>
           </div>
         </article>
@@ -245,6 +351,13 @@ import { AppointmentService } from '../../core/services/appointment.service';
       gap: 0.2rem;
     }
 
+    .metric-card.attention {
+      border-color: color-mix(in srgb, var(--dash-accent-2) 54%, var(--surface-strong));
+      background:
+        radial-gradient(circle at 95% 0%, color-mix(in srgb, var(--dash-accent-2) 22%, transparent), transparent 9rem),
+        var(--surface-elevated);
+    }
+
     .metric-card span,
     .workflow-card span {
       color: var(--muted);
@@ -347,6 +460,22 @@ import { AppointmentService } from '../../core/services/appointment.service';
       padding: 0.7rem;
     }
 
+    .system-link {
+      color: inherit;
+      text-decoration: none;
+      transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+    }
+
+    .system-link:hover {
+      border-color: color-mix(in srgb, var(--accent) 48%, var(--surface-strong));
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+      transform: translateY(-1px);
+    }
+
+    .attention-item {
+      border-color: color-mix(in srgb, var(--dash-accent-2) 42%, var(--surface-strong));
+    }
+
     .compact-item strong,
     .compact-item span {
       color: var(--ink);
@@ -356,6 +485,11 @@ import { AppointmentService } from '../../core/services/appointment.service';
     .compact-item small {
       color: var(--muted);
       font-size: 0.78rem;
+    }
+
+    .system-list {
+      display: grid;
+      gap: 0.55rem;
     }
 
     .feedback {
@@ -383,15 +517,21 @@ import { AppointmentService } from '../../core/services/appointment.service';
 export class DashboardPageComponent implements OnInit {
   patients: Patient[] = [];
   appointments: Appointment[] = [];
+  internalUsers: AdminUserResponse[] = [];
+  auditEvents: AuditEvent[] = [];
   isLoading = false;
   isAppointmentsLoading = false;
+  isAdminOverviewLoading = false;
   errorMessage = '';
   appointmentsError = '';
+  adminOverviewError = '';
 
   constructor(
     private readonly authService: AuthService,
     private readonly patientService: PatientService,
     private readonly appointmentService: AppointmentService,
+    private readonly adminUserService: AdminUserService,
+    private readonly auditService: AuditService,
     public readonly i18n: I18nService
   ) {}
 
@@ -399,6 +539,9 @@ export class DashboardPageComponent implements OnInit {
     this.loadPatients();
     if (this.isClinicalUser) {
       this.loadUpcomingAppointments();
+    }
+    if (this.isAdmin) {
+      this.loadAdminOverview();
     }
   }
 
@@ -414,8 +557,16 @@ export class DashboardPageComponent implements OnInit {
     return this.currentRole === 'ADMIN';
   }
 
+  get isDoctor(): boolean {
+    return this.currentRole === 'DOCTOR';
+  }
+
+  get isFrontDesk(): boolean {
+    return this.currentRole === 'FRONT_DESK';
+  }
+
   get isClinicalUser(): boolean {
-    return this.currentRole === 'DOCTOR' || this.currentRole === 'FRONT_DESK';
+    return this.isDoctor || this.isFrontDesk;
   }
 
   get dashboardRoleClass(): string {
@@ -491,12 +642,46 @@ export class DashboardPageComponent implements OnInit {
     return this.patients.filter((patient) => !patient.assignedFrontDeskUsername).length;
   }
 
+  get enabledDoctorCount(): number {
+    return this.internalUsers.filter((user) => user.role === 'DOCTOR' && user.enabled).length;
+  }
+
+  get enabledFrontDeskCount(): number {
+    return this.internalUsers.filter((user) => user.role === 'FRONT_DESK' && user.enabled).length;
+  }
+
+  get inactiveInternalUserCount(): number {
+    return this.internalUsers.filter((user) => !user.enabled).length;
+  }
+
+  get assignmentGapCount(): number {
+    return this.patients.filter((patient) => !patient.assignedDoctorUsername || !patient.assignedFrontDeskUsername).length;
+  }
+
+  get assignmentQueuePreview(): Patient[] {
+    return this.patients
+      .filter((patient) => !patient.assignedDoctorUsername || !patient.assignedFrontDeskUsername)
+      .slice(0, 6);
+  }
+
+  get recentAuditEvents(): AuditEvent[] {
+    return this.auditEvents.slice(0, 5);
+  }
+
   get appointmentsPreview(): Appointment[] {
     return this.appointments.slice(0, 5);
   }
 
   trackByAppointmentId(_index: number, appointment: Appointment): number {
     return appointment.id;
+  }
+
+  trackByPatientId(_index: number, patient: Patient): number {
+    return patient.id;
+  }
+
+  trackByAuditEventId(_index: number, event: AuditEvent): number {
+    return event.id;
   }
 
   private loadPatients(): void {
@@ -527,6 +712,28 @@ export class DashboardPageComponent implements OnInit {
       error: (error: unknown) => {
         this.appointmentsError = this.resolveErrorMessage(error, 'dashboard.appointments.error');
         this.isAppointmentsLoading = false;
+      }
+    });
+  }
+
+  private loadAdminOverview(): void {
+    this.isAdminOverviewLoading = true;
+    this.adminOverviewError = '';
+
+    forkJoin({
+      internalUsers: this.adminUserService.getInternalUsers('ALL'),
+      auditEvents: this.auditService.getEvents({ limit: 5 })
+    }).subscribe({
+      next: ({ internalUsers, auditEvents }) => {
+        this.internalUsers = internalUsers;
+        this.auditEvents = auditEvents;
+        this.isAdminOverviewLoading = false;
+      },
+      error: (error: unknown) => {
+        this.adminOverviewError = this.resolveErrorMessage(error, 'dashboard.adminOverview.error');
+        this.internalUsers = [];
+        this.auditEvents = [];
+        this.isAdminOverviewLoading = false;
       }
     });
   }

@@ -38,9 +38,11 @@ export class AppComponent implements OnInit, OnDestroy {
     { labelKey: 'nav.patients', route: '/patients', icon: 'P', prefixMatch: true, roles: ['DOCTOR', 'FRONT_DESK'] },
     { labelKey: 'nav.newPatient', route: '/patients/new', icon: '+', roles: ['DOCTOR', 'FRONT_DESK'] },
     { labelKey: 'nav.appointments', route: '/appointments', icon: 'A', roles: ['DOCTOR', 'FRONT_DESK'] },
+    { labelKey: 'nav.patientLinks', route: '/patient-links', icon: 'V', roles: ['ADMIN', 'FRONT_DESK'] },
     { labelKey: 'nav.adminUsers', route: '/admin/users', icon: 'U', roles: ['ADMIN'] },
     { labelKey: 'nav.adminAssignments', route: '/admin/assignments', icon: 'S', roles: ['ADMIN'] },
-    { labelKey: 'nav.adminAudit', route: '/admin/audit', icon: 'L', roles: ['ADMIN'] }
+    { labelKey: 'nav.adminAudit', route: '/admin/audit', icon: 'L', roles: ['ADMIN'] },
+    { labelKey: 'nav.adminBackups', route: '/admin/backups', icon: 'B', roles: ['ADMIN'] }
   ];
   private readonly subscriptions = new Subscription();
   private agendaRequest: Subscription | null = null;
@@ -128,6 +130,12 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.isAdminAuditRoute()) {
       return 'admin.audit.title';
     }
+    if (this.isAdminBackupsRoute()) {
+      return 'admin.backups.title';
+    }
+    if (this.isPatientLinksRoute()) {
+      return 'patientLinks.title';
+    }
     if (this.isCasesRoute()) {
       return 'cases.title';
     }
@@ -155,6 +163,12 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     if (this.isAdminAuditRoute()) {
       return 'admin.audit.description';
+    }
+    if (this.isAdminBackupsRoute()) {
+      return 'admin.backups.description';
+    }
+    if (this.isPatientLinksRoute()) {
+      return 'patientLinks.description';
     }
     if (this.isCasesRoute()) {
       return 'cases.description';
@@ -184,9 +198,11 @@ export class AppComponent implements OnInit, OnDestroy {
     if (role === 'ADMIN') {
       const actions: WorkspaceAction[] = [
         { labelKey: 'nav.dashboard', route: '/dashboard' },
+        { labelKey: 'nav.patientLinks', route: '/patient-links' },
         { labelKey: 'nav.adminUsers', route: '/admin/users' },
         { labelKey: 'nav.adminAssignments', route: '/admin/assignments' },
-        { labelKey: 'nav.adminAudit', route: '/admin/audit' }
+        { labelKey: 'nav.adminAudit', route: '/admin/audit' },
+        { labelKey: 'nav.adminBackups', route: '/admin/backups' }
       ];
       return actions.filter((action) => action.route !== path);
     }
@@ -195,6 +211,7 @@ export class AppComponent implements OnInit, OnDestroy {
       { labelKey: 'nav.dashboard', route: '/dashboard' },
       { labelKey: 'nav.patients', route: '/patients' },
       { labelKey: 'nav.appointments', route: '/appointments' },
+      { labelKey: 'nav.patientLinks', route: '/patient-links' },
       { labelKey: 'nav.newPatient', route: '/patients/new' }
     ];
     return clinicalActions.filter((action) => action.route !== path);
@@ -218,7 +235,12 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   isRoutePrefix(prefix: string): boolean {
-    return this.currentPath().startsWith(prefix);
+    const path = this.currentPath();
+    if (path !== prefix && !path.startsWith(`${prefix}/`)) {
+      return false;
+    }
+
+    return !this.workspaceNav.some((item) => item.route !== prefix && item.route === path);
   }
 
   isRoute(route: string): boolean {
@@ -326,6 +348,14 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private isAdminAuditRoute(): boolean {
     return this.currentPath() === '/admin/audit';
+  }
+
+  private isAdminBackupsRoute(): boolean {
+    return this.currentPath() === '/admin/backups';
+  }
+
+  private isPatientLinksRoute(): boolean {
+    return this.currentPath() === '/patient-links';
   }
 
   private currentPath(): string {

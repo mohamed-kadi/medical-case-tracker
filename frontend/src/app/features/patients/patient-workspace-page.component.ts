@@ -117,16 +117,55 @@ import { PatientService } from '../../core/services/patient.service';
           </ng-template>
         </article>
 
-        <article class="panel patient-card-panel" *ngIf="patient">
-          <div class="card-shell">
-            <span class="card-kicker">{{ i18n.t('patientWorkspace.card.kicker') }}</span>
-            <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
-            <code>{{ patient.patientNumber || '-' }}</code>
-            <small>{{ i18n.t('patientWorkspace.card.helper') }}</small>
+        <article class="panel patient-card-panel print-card-area" *ngIf="patient">
+          <header class="card-panel-header">
+            <div>
+              <h2>{{ i18n.t('patientWorkspace.card.title') }}</h2>
+              <p>{{ i18n.t('patientWorkspace.card.description') }}</p>
+            </div>
+            <button type="button" class="secondary" (click)="printPatientCard()">
+              {{ i18n.t('patientWorkspace.card.print') }}
+            </button>
+          </header>
+
+          <div class="clinic-card" aria-label="Patient card preview">
+            <div class="card-topline">
+              <span>{{ i18n.t('app.brand') }}</span>
+              <b>{{ i18n.t('patientWorkspace.card.kicker') }}</b>
+            </div>
+
+            <div class="card-identity">
+              <span>{{ i18n.t('patientWorkspace.card.patientNumberLabel') }}</span>
+              <strong>{{ patient.patientNumber || i18n.t('patientWorkspace.card.missingNumber') }}</strong>
+              <small>{{ patient.firstName }} {{ patient.lastName }}</small>
+            </div>
+
+            <div class="card-data-grid">
+              <div>
+                <span>{{ i18n.t('patientWorkspace.card.phone') }}</span>
+                <strong>{{ patient.phoneNumber || '-' }}</strong>
+              </div>
+              <div>
+                <span>{{ i18n.t('patientWorkspace.card.birthDate') }}</span>
+                <strong>{{ patient.dateOfBirth || '-' }}</strong>
+              </div>
+              <div>
+                <span>{{ i18n.t('patientWorkspace.card.doctor') }}</span>
+                <strong>{{ patient.assignedDoctorUsername || '-' }}</strong>
+              </div>
+              <div>
+                <span>{{ i18n.t('patientWorkspace.card.created') }}</span>
+                <strong>{{ patient.createdAt ? (patient.createdAt | date: 'mediumDate') : '-' }}</strong>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <span>{{ i18n.t('patientWorkspace.card.frontDesk') }}: {{ patient.assignedFrontDeskUsername || '-' }}</span>
+              <span>{{ i18n.t('patientWorkspace.card.registeredBy') }}: {{ patient.registeredByUsername || '-' }}</span>
+            </div>
           </div>
-          <button type="button" class="secondary" (click)="printPatientCard()">
-            {{ i18n.t('patientWorkspace.card.print') }}
-          </button>
+
+          <p class="card-guidance">{{ i18n.t('patientWorkspace.card.helper') }}</p>
         </article>
 
         <article class="panel appointments-panel">
@@ -446,44 +485,134 @@ import { PatientService } from '../../core/services/patient.service';
 
     .patient-card-panel {
       align-content: start;
-    }
-
-    .card-shell {
-      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--surface-strong));
-      border-radius: 0.9rem;
-      padding: 0.9rem;
       background:
-        radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 28%, transparent), transparent 42%),
-        linear-gradient(145deg, color-mix(in srgb, var(--surface) 86%, var(--accent)), var(--surface-elevated));
+        linear-gradient(160deg, color-mix(in srgb, var(--surface-elevated) 88%, #e7d49f), var(--surface-elevated)),
+        var(--surface-elevated);
+    }
+
+    .card-panel-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.8rem;
+      align-items: start;
+    }
+
+    .card-panel-header p,
+    .card-guidance {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .clinic-card {
+      width: min(100%, 23rem);
+      aspect-ratio: 1.586;
+      border-radius: 1.15rem;
+      padding: 1rem;
+      color: #17201b;
+      background:
+        radial-gradient(circle at 88% 15%, rgba(255, 255, 255, 0.72), transparent 18%),
+        radial-gradient(circle at 0 100%, rgba(72, 111, 89, 0.26), transparent 33%),
+        linear-gradient(135deg, #f5efe1 0%, #d9c99f 48%, #94b09b 100%);
+      box-shadow: 0 1.4rem 2.8rem rgba(23, 32, 27, 0.18);
+      border: 1px solid rgba(23, 32, 27, 0.18);
       display: grid;
-      gap: 0.35rem;
+      grid-template-rows: auto 1fr auto auto;
+      gap: 0.7rem;
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
     }
 
-    .card-kicker {
-      color: var(--muted);
-      font-size: 0.72rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .card-shell strong {
-      font-size: 1.05rem;
-    }
-
-    .card-shell code {
-      width: fit-content;
+    .clinic-card::after {
+      content: '';
+      position: absolute;
+      inset: auto -2.5rem -3rem auto;
+      width: 9rem;
+      height: 9rem;
       border-radius: 999px;
-      padding: 0.25rem 0.5rem;
-      background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-      color: var(--ink);
-      font-family: inherit;
-      font-weight: 700;
+      border: 1.2rem solid rgba(255, 255, 255, 0.22);
+      z-index: -1;
     }
 
-    .card-shell small {
-      color: var(--muted);
-      font-size: 0.78rem;
-      margin: 0;
+    .card-topline,
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.7rem;
+      align-items: center;
+    }
+
+    .card-topline span,
+    .card-topline b,
+    .card-data-grid span,
+    .card-footer span,
+    .card-identity span {
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .card-topline span {
+      font-weight: 800;
+    }
+
+    .card-topline b {
+      font-weight: 700;
+      opacity: 0.75;
+    }
+
+    .card-identity {
+      display: grid;
+      align-content: center;
+      gap: 0.2rem;
+    }
+
+    .card-identity strong {
+      font-size: clamp(1.65rem, 4vw, 2.45rem);
+      line-height: 0.95;
+      letter-spacing: -0.055em;
+    }
+
+    .card-identity small {
+      font-size: 1rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.045em;
+    }
+
+    .card-data-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.45rem 0.7rem;
+    }
+
+    .card-data-grid div {
+      display: grid;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+
+    .card-data-grid strong {
+      font-size: 0.76rem;
+      line-height: 1.15;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-footer {
+      border-top: 1px solid rgba(23, 32, 27, 0.2);
+      padding-top: 0.45rem;
+      align-items: start;
+    }
+
+    .card-footer span {
+      opacity: 0.78;
+      line-height: 1.25;
+      text-transform: none;
+      letter-spacing: 0;
     }
 
     .case-layout {
@@ -620,6 +749,48 @@ import { PatientService } from '../../core/services/patient.service';
 
       dl {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      .workspace-header,
+      .overview,
+      .summary-panel,
+      .appointments-panel,
+      .workspace-shell > .panel:not(.print-card-area),
+      .card-panel-header,
+      .card-guidance,
+      .feedback,
+      .loading {
+        display: none !important;
+      }
+
+      .workspace-shell,
+      .panel-grid,
+      .patient-card-panel {
+        display: block !important;
+        width: auto !important;
+      }
+
+      .patient-card-panel {
+        border: 0;
+        padding: 0;
+        box-shadow: none;
+        background: transparent;
+      }
+
+      .clinic-card {
+        width: 86mm;
+        height: 54mm;
+        aspect-ratio: auto;
+        box-shadow: none;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
       }
     }
   `
@@ -940,7 +1111,21 @@ export class PatientWorkspacePageComponent implements OnInit {
   }
 
   printPatientCard(): void {
-    window.print();
+    if (!this.patient) {
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=720,height=480');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(this.buildPatientCardPrintHtml(this.patient));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   }
 
   private loadPatient(patientId: number): void {
@@ -1054,5 +1239,181 @@ export class PatientWorkspacePageComponent implements OnInit {
       }
     }
     return this.i18n.t(fallbackKey);
+  }
+
+  private buildPatientCardPrintHtml(patient: Patient): string {
+    const patientNumber = patient.patientNumber || this.i18n.t('patientWorkspace.card.missingNumber');
+    const createdAt = patient.createdAt ? this.formatCardDate(patient.createdAt) : '-';
+    return `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${this.escapeHtml(this.i18n.t('patientWorkspace.card.title'))}</title>
+          <style>
+            @page { size: A4; margin: 12mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              min-height: 100vh;
+              display: grid;
+              place-items: start center;
+              background: #ffffff;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              color: #17201b;
+            }
+            .clinic-card {
+              width: 86mm;
+              height: 54mm;
+              border-radius: 5mm;
+              padding: 5mm;
+              background:
+                radial-gradient(circle at 88% 15%, rgba(255, 255, 255, 0.72), transparent 18%),
+                radial-gradient(circle at 0 100%, rgba(72, 111, 89, 0.26), transparent 33%),
+                linear-gradient(135deg, #f5efe1 0%, #d9c99f 48%, #94b09b 100%);
+              border: 0.35mm solid rgba(23, 32, 27, 0.18);
+              display: grid;
+              grid-template-rows: auto 1fr auto auto;
+              gap: 3mm;
+              overflow: hidden;
+              position: relative;
+              isolation: isolate;
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+            }
+            .clinic-card::after {
+              content: '';
+              position: absolute;
+              right: -15mm;
+              bottom: -18mm;
+              width: 42mm;
+              height: 42mm;
+              border-radius: 999px;
+              border: 6mm solid rgba(255, 255, 255, 0.22);
+              z-index: -1;
+            }
+            .topline,
+            .footer {
+              display: flex;
+              justify-content: space-between;
+              gap: 4mm;
+            }
+            .topline span,
+            .topline b,
+            .identity span,
+            .data span,
+            .footer span {
+              font-size: 6.2pt;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+            }
+            .topline span {
+              font-weight: 800;
+            }
+            .topline b {
+              opacity: 0.76;
+            }
+            .identity {
+              display: grid;
+              align-content: center;
+              gap: 1mm;
+            }
+            .identity strong {
+              font-size: 21pt;
+              line-height: 0.95;
+              letter-spacing: -0.055em;
+            }
+            .identity small {
+              font-size: 9pt;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.045em;
+            }
+            .data {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 2mm 4mm;
+            }
+            .data div {
+              display: grid;
+              gap: 0.8mm;
+              min-width: 0;
+            }
+            .data strong {
+              font-size: 7.2pt;
+              line-height: 1.15;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+            .footer {
+              border-top: 0.25mm solid rgba(23, 32, 27, 0.2);
+              padding-top: 2mm;
+              align-items: start;
+            }
+            .footer span {
+              opacity: 0.78;
+              line-height: 1.25;
+              text-transform: none;
+              letter-spacing: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <article class="clinic-card">
+            <div class="topline">
+              <span>${this.escapeHtml(this.i18n.t('app.brand'))}</span>
+              <b>${this.escapeHtml(this.i18n.t('patientWorkspace.card.kicker'))}</b>
+            </div>
+            <div class="identity">
+              <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.patientNumberLabel'))}</span>
+              <strong>${this.escapeHtml(patientNumber)}</strong>
+              <small>${this.escapeHtml(patient.firstName)} ${this.escapeHtml(patient.lastName)}</small>
+            </div>
+            <div class="data">
+              <div>
+                <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.phone'))}</span>
+                <strong>${this.escapeHtml(patient.phoneNumber || '-')}</strong>
+              </div>
+              <div>
+                <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.birthDate'))}</span>
+                <strong>${this.escapeHtml(patient.dateOfBirth || '-')}</strong>
+              </div>
+              <div>
+                <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.doctor'))}</span>
+                <strong>${this.escapeHtml(patient.assignedDoctorUsername || '-')}</strong>
+              </div>
+              <div>
+                <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.created'))}</span>
+                <strong>${this.escapeHtml(createdAt)}</strong>
+              </div>
+            </div>
+            <div class="footer">
+              <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.frontDesk'))}: ${this.escapeHtml(patient.assignedFrontDeskUsername || '-')}</span>
+              <span>${this.escapeHtml(this.i18n.t('patientWorkspace.card.registeredBy'))}: ${this.escapeHtml(patient.registeredByUsername || '-')}</span>
+            </div>
+          </article>
+        </body>
+      </html>`;
+  }
+
+  private formatCardDate(value: string): string {
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return value;
+    }
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit'
+    }).format(parsedDate);
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
 }

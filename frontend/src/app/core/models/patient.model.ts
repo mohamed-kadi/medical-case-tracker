@@ -11,6 +11,8 @@ export interface Patient {
   status: string;
   assignedDoctorUsername?: string | null;
   assignedFrontDeskUsername?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface PatientUpsertRequest {
