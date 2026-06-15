@@ -8,7 +8,7 @@ Medical Case Tracker is a secure full-stack clinic operations platform for patie
 
 - One platform, one codebase, multiple deployment modes.
 - Internal clinic workflows are the current primary product.
-- Patient portal is optional and staged for later rollout.
+- Patient portal is limited/read-only in the current phase.
 - Specialty support is template-driven on top of shared core modules.
 - Deployment targets:
   - on-premise clinic deployment
@@ -21,7 +21,7 @@ Current code contract:
 
 - `ADMIN` means clinic admin (not platform/system admin), scoped to management workflows by default
 - `DOCTOR` and `FRONT_DESK` are internal users
-- `PATIENT` is limited/future portal user
+- `PATIENT` is a limited read-only portal user
 - `registeredByUsername` records who created a patient folder; it is not the same as `assignedFrontDeskUsername`, which represents current front desk responsibility
 - Detailed capability matrix: `docs/developer/RBAC_MATRIX.md`
 
@@ -47,6 +47,7 @@ Target contract (future phase):
 - Security: `backend/src/main/java/com/doctorapp/medicaltracker/security`
 - Backend exception handling: `backend/src/main/java/com/doctorapp/medicaltracker/exception`
 - Backend configuration: `backend/src/main/resources/application*.properties`
+- Backend schema migrations: `backend/src/main/resources/db/migration`
 - Backend i18n: `backend/src/main/resources/i18n/messages_*.properties`
 - Frontend application: `frontend/src/app`
 - Frontend environment config: `frontend/src/environments`
@@ -59,7 +60,8 @@ Target contract (future phase):
 - Auth feature pages: `frontend/src/app/features/auth`
 - Admin user provisioning page: `frontend/src/app/features/admin/admin-users-page.component.ts`
 - Admin audit page: `frontend/src/app/features/admin/admin-audit-page.component.ts`
-- Patient holding page (non-internal roles): `frontend/src/app/features/auth/patient-portal-page.component.ts`
+- Admin backup/restore page: `frontend/src/app/features/admin/admin-backups-page.component.ts`
+- Patient portal page: `frontend/src/app/features/auth/patient-portal-page.component.ts`
 - Dashboard page: `frontend/src/app/features/dashboard`
 - Patients directory page: `frontend/src/app/features/patients/patients-page.component.ts`
 - Patient form page (create/edit routes): `frontend/src/app/features/patients/patient-form-page.component.ts`
@@ -71,8 +73,17 @@ Target contract (future phase):
   - `internalGuard` restricts clinic workspace routes to `ADMIN/DOCTOR/FRONT_DESK`
   - `clinicalGuard` restricts clinical workspace routes to `DOCTOR/FRONT_DESK`
   - `adminGuard` restricts admin provisioning route to `ADMIN` only
+  - `patientGuard` restricts `/patient-portal` to `PATIENT` only
 - Auth/token services: `frontend/src/app/core/services/auth.service.ts`, `frontend/src/app/core/services/token-storage.service.ts`
 - Auth tokens must stay in `sessionStorage` so local offline workstations do not share an admin/doctor/front-desk login across every browser window on the same `localhost` origin.
+- Patient portal API: `backend/src/main/java/com/doctorapp/medicaltracker/controller/PatientPortalController.java`
+- Patient account link model: `backend/src/main/java/com/doctorapp/medicaltracker/model/PatientAccountLink.java`
+- Patient account link API: `backend/src/main/java/com/doctorapp/medicaltracker/controller/PatientAccountLinkController.java`
+- Patient account link service: `backend/src/main/java/com/doctorapp/medicaltracker/service/impl/PatientAccountLinkServiceImpl.java`
+- Backup API: `backend/src/main/java/com/doctorapp/medicaltracker/controller/AdminBackupController.java`
+- Backup service: `backend/src/main/java/com/doctorapp/medicaltracker/service/impl/BackupServiceImpl.java`
+- Patient portal frontend service: `frontend/src/app/core/services/patient-portal.service.ts`
+- Admin backup frontend service: `frontend/src/app/core/services/admin-backup.service.ts`
 - Patient and appointment API services: `frontend/src/app/core/services/patient.service.ts`, `frontend/src/app/core/services/appointment.service.ts`
 - Case and image API services: `frontend/src/app/core/services/case.service.ts`, `frontend/src/app/core/services/image.service.ts`
 - UI localization: `frontend/src/app/core/services/language.service.ts`, `frontend/src/app/core/services/i18n.service.ts`
@@ -82,6 +93,7 @@ Target contract (future phase):
 
 - Backend auth/web tests: `backend/src/test/java/com/doctorapp/medicaltracker/controller/AuthControllerTest.java`
 - Backend admin audit test: `backend/src/test/java/com/doctorapp/medicaltracker/controller/AdminAuditControllerTest.java`
+- Backend admin backup test: `backend/src/test/java/com/doctorapp/medicaltracker/controller/AdminBackupControllerTest.java`
 - Backend security integration tests: `backend/src/test/java/com/doctorapp/medicaltracker/security/SecurityConfigIntegrationTest.java`
 - Backend i18n bundle parity test: `backend/src/test/java/com/doctorapp/medicaltracker/config/LocalizationBundleConsistencyTest.java`
 - Backend audit/service tests: `backend/src/test/java/com/doctorapp/medicaltracker/service/AuditEventServiceImplTest.java`, `backend/src/test/java/com/doctorapp/medicaltracker/service/MedicalCaseServiceImplTest.java`, `backend/src/test/java/com/doctorapp/medicaltracker/service/MedicalImageServiceImplTest.java`
@@ -96,6 +108,8 @@ Target contract (future phase):
 - Local secrets file: `backend/.env` (gitignored, never committed)
 - Runtime configuration still resolves via Spring environment variables from `application*.properties`
 - CI/deploy secrets must be stored in GitHub Secrets, not repo files
+- Backup/restore runtime settings: `APP_BACKUP_STORAGE_PATH`, `APP_BACKUP_PG_DUMP_COMMAND`, `APP_BACKUP_PSQL_COMMAND`
+- Schema changes must ship as Flyway migrations; Hibernate is validation-only in `dev`/`prod`.
 
 ## Branching and Delivery Flow
 

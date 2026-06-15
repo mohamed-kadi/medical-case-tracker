@@ -36,7 +36,7 @@ Current (implemented):
 - `ADMIN`: clinic admin for current internal product scope
 - `DOCTOR`: assigned patient care workflows
 - `FRONT_DESK`: intake, scheduling, upload support, operations
-- `PATIENT`: future portal track (not day-1 clinic workflow)
+- `PATIENT`: limited read-only portal track (not required for day-1 clinic workflow)
 
 Target (planned):
 
@@ -97,7 +97,7 @@ Deliverable:
 
 - Data retention and consent workflows.
 - Complete audit trail for access and edits.
-- Backup/restore policy and disaster recovery runbook.
+- Backup/restore policy, disaster recovery runbook, and restore drills. Initial local admin backup/restore tooling now exists.
 - CNDP-focused documentation package for onboarding clinics.
 
 Deliverable:
@@ -105,7 +105,8 @@ Deliverable:
 
 ### Phase 4 - Patient Portal (optional later)
 
-- Limited patient access to own cases/images/follow-up instructions.
+- Verified patient account linking from offline clinic files to online portal accounts.
+- Limited patient access to own file summary, appointments, and future follow-up instructions.
 - Reminders and secure messaging (if demanded by clinics).
 
 Deliverable:
@@ -133,7 +134,7 @@ Deliverable:
 ## Technical Guardrails
 
 - Keep one codebase and one API surface.
-- Enforce migrations (Flyway) before production rollout.
+- Enforce migrations with Flyway before production/offline rollout.
 - Use DTO contracts for all external APIs.
 - Add integration tests for RBAC and cross-user access isolation.
 - Keep bilingual behavior (`en`, `fr`) as a non-negotiable requirement.

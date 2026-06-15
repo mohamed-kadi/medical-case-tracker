@@ -17,7 +17,7 @@ Current implemented contract:
 
 - `ADMIN` = clinic-level admin (not platform super-admin)
 - `DOCTOR`, `FRONT_DESK` = internal clinical users
-- `PATIENT` = limited/future portal role
+- `PATIENT` = limited read-only portal role
 
 Target contract (future phase):
 
@@ -34,6 +34,7 @@ Status: Completed (except optional setup runbook polish)
 - admin provisioning endpoint
 - optional first-admin bootstrap
 - PostgreSQL dev bootstrap helper script
+- Flyway baseline migrations with Hibernate validation in dev/prod
 - CI for backend/frontend build and tests
 
 Exit criteria:
@@ -50,6 +51,7 @@ Status: In progress (active build phase)
 - Upcoming appointments API + dashboard integration
 - Basic audit events for key write operations
 - UX hardening: dashboard-first navigation and dedicated patient create/edit flows
+- Initial admin backup/restore workflow for local/offline deployments
 
 Current execution order inside Phase 1:
 
@@ -63,7 +65,7 @@ Current execution order inside Phase 1:
 
 Exit criteria:
 
-- Pilot clinic can run daily workflows without PATIENT portal dependency.
+- Pilot clinic can run daily workflows without PATIENT portal dependency; current patient portal remains read-only and optional.
 
 ## Phase 1.5 - Access Model Split + Tenant Foundation
 
@@ -93,11 +95,11 @@ Exit criteria:
 
 ## Phase 3 - Compliance + Operability
 
-Status: Planned (can run in parallel with Phase 2)
+Status: Planned (can run in parallel with Phase 2; initial admin backup/restore tooling exists)
 
 - Complete audit trail coverage
 - Consent/retention policy flows
-- Backup/restore + disaster recovery runbook
+- Harden backup/restore policy with disaster recovery drills, retention rules, and deployment-specific runbooks
 - CNDP-aligned documentation package
 
 Exit criteria:

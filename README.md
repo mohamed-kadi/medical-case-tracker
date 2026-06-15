@@ -28,14 +28,14 @@ Suggested mental model:
 ## Implemented Scope (Spec v1 Baseline)
 
 - Spring Boot backend API with JWT authentication and role-based access controls
-- Angular frontend with login/register, role-based routing, protected workspace, and patient portal holding page
+- Angular frontend with login/register, role-based routing, protected workspace, and limited patient portal dashboard
 - Dashboard visualization for role-filtered patients and upcoming appointments
 - Admin-only internal user management screen for `DOCTOR`/`FRONT_DESK` creation plus searchable role-filtered directory
 - Dedicated Patients frontend workspace with directory/list view and separate create/edit form routes
 - Patient case workspace route (`/patients/:id/cases`) for case lifecycle, image uploads, category filtering, preview, and download
 - English/French localization across backend responses and frontend UI
 - Developer and user documentation maps in `docs/`
-- Frontend-first delivery while Flyway migrations are intentionally deferred
+- Flyway-backed PostgreSQL schema migrations for safer local/offline updates
 
 ## Role Model (Current vs Target)
 
@@ -44,7 +44,7 @@ Current behavior (implemented now):
 - `ADMIN`: clinic administrator for one clinic workspace (user provisioning + assignments, non-clinical by default)
 - `DOCTOR`: provider workflows for assigned patients, clinical cases, medical history, and images
 - `FRONT_DESK`: intake and scheduling workflows for patient identity/contact details and appointments; clinical history, cases, and images are hidden; patient creation records the logged-in receptionist as the registrar
-- `PATIENT`: limited/placeholder portal role (future expansion)
+- `PATIENT`: limited read-only portal role for verified linked patient file, patient number, assigned contacts, and upcoming appointments
 
 Target model (planned, not yet implemented):
 
@@ -64,7 +64,7 @@ Migration note:
 3. `FRONT_DESK` creates patient folders, records identity/contact details, schedules appointments, and shares the patient number/card.
 4. `DOCTOR` manages assigned patients, medical history, cases, images, and clinical follow-up.
 5. Public `/register` remains patient-only and does not create internal roles.
-6. `PATIENT` accounts are redirected to `/patient-portal` placeholder in this phase.
+6. `PATIENT` accounts are redirected to `/patient-portal` for their limited read-only dashboard.
 
 ## Patient Registration Flow
 
@@ -84,11 +84,44 @@ Registration and assignment are separate. This rule is important for clinics wit
 | Multiple enabled doctors | Patient is registered by the receptionist and assigned to that receptionist; doctor is left blank for admin review. |
 | Zero enabled doctors | Patient is registered by the receptionist and assigned to that receptionist; doctor is left blank until a doctor exists. |
 
+## Patient Card Flow
+
+The patient card is the clinic-facing identifier for an official patient file.
+
+- `FRONT_DESK` creates the patient file and gives the patient their patient number/card.
+- The card is visible inside the patient workspace at `/patients/:id`.
+- The card includes the patient number, full name, phone, birth date, assigned doctor, assigned front desk user, registrar, and file creation date when available.
+- Printing from the card panel prints the card design, not the whole patient workspace.
+- The card is not a patient portal account. It is only an identifier for the clinic file.
+- Later online access should still use the verified patient account linking flow before exposing portal data.
+
+## Offline-To-Online Patient Linking Flow
+
+The clinic patient file is always the source of truth.
+
+1. In offline/local clinic mode, `FRONT_DESK` creates the official `patients` file and gives the patient their patient number/card.
+2. If the clinic later enables online access, the patient can create a `PATIENT` portal account from the public registration flow.
+3. That online account does not automatically own or expose any clinic file.
+4. The clinic verifies the patient using the patient number/card plus local identity checks.
+5. Staff opens `/patient-links`, loads the patient by number, searches the patient portal account, and verifies the link.
+6. After verification, the app creates a `patient_account_links` row between the `users` account and the `patients` file with status `VERIFIED`.
+7. Only then does `/patient-portal` show the limited patient summary and upcoming appointments.
+
+Important rule:
+
+- Public self-registration creates a login account only. It must not create a second official clinic patient file.
+- Email or phone matching can help staff search for likely matches, but it must not be treated as verification by itself.
+- A `PENDING` or `REVOKED` link must show the unlinked portal state and expose no patient file data.
+
 ## Frontend UX Flow
 
 - Signed-out: `login` / `register` pages only.
 - Signed-in internal users (`ADMIN`/`DOCTOR`/`FRONT_DESK`): dashboard-first workspace, with patient management routed from workspace actions.
 - Signed-in `PATIENT`: redirected to `/patient-portal`.
+- Patient portal is read-only and exposes only the verified linked patient file summary, patient number, assigned doctor/front desk usernames, and upcoming scheduled appointments.
+- Patient portal does not expose clinical notes, medical history, cases, images, appointment notes, or internal audit data.
+- Patient accounts and patient files are separate records; `patient_account_links` is the bridge used after clinic verification.
+- Patient account linking route (`/patient-links`) is limited to `ADMIN`/`FRONT_DESK`.
 - Patient intake and scheduling routes (`/patients`, `/patients/new`, `/patients/:id/edit`, `/appointments`) are limited to `DOCTOR`/`FRONT_DESK`.
 - Clinical case route (`/patients/:id/cases`) is doctor-only.
 - Auth tokens are stored in browser `sessionStorage`, not `localStorage`; signing in on one tab/window should not automatically sign in a separate browser tab/window.
@@ -104,6 +137,48 @@ Registration and assignment are separate. This rule is important for clinics wit
 - Admin patient assignments:
   - Route: `/admin/assignments`
   - Access: `ADMIN` only
+- Admin backup and restore:
+  - Route: `/admin/backups`
+  - Access: `ADMIN` only
+
+## Backup And Restore Workflow
+
+The backup feature is designed for the local/offline clinic deployment where the doctor owns the data on one clinic machine or local network.
+
+What a backup contains:
+
+- PostgreSQL database dump from the configured `DB_URL`
+- Local medical image files from `APP_IMAGE_STORAGE_PATH`
+- Backup manifest metadata inside the generated ZIP
+
+Where backups are stored:
+
+- `APP_BACKUP_STORAGE_PATH` controls the folder used by the backend.
+- Default local value: `./var/backups` relative to the backend runtime directory.
+- The admin can download backup ZIP files from `/admin/backups`.
+
+Required PostgreSQL tools:
+
+- `pg_dump` is required to create database backups.
+- `psql` is required to restore database backups.
+- If those commands are not available in the system `PATH`, set:
+  - `APP_BACKUP_PG_DUMP_COMMAND`
+  - `APP_BACKUP_PSQL_COMMAND`
+
+Recommended clinic routine:
+
+1. Create one backup before app updates or database changes.
+2. Create one backup at the end of each clinic day.
+3. Download/copy the ZIP to an external drive or trusted clinic NAS.
+4. Test restore on a non-production machine before trusting the routine for real clinic data.
+
+Restore behavior:
+
+- Restore is admin-only.
+- The admin must upload a backup ZIP and type `RESTORE`.
+- Restore replaces the current database data and local image folder with the selected backup.
+- Before restore, the backend creates a safety backup of the current state.
+- After restore, image paths are rewritten for the current machine's configured image folder.
 
 ## Technology Stack
 
@@ -126,12 +201,13 @@ Registration and assignment are separate. This rule is important for clinics wit
 
 ## Setup and Run
 
-Flyway is not required for the current phase.
+Flyway runs automatically when the backend starts in `dev` or `prod`.
 
 ### Prerequisites
 
 - Java 17
 - PostgreSQL 14+ running locally
+- PostgreSQL command-line tools available locally (`pg_dump` and `psql`) for backup/restore
 - Node 20+ and npm 10+
 
 Notes:
@@ -152,6 +228,7 @@ Then edit `backend/.env` and set:
 - `DB_URL`
 - `DB_USERNAME`
 - `DB_PASSWORD`
+- optional backup settings: `APP_BACKUP_STORAGE_PATH`, `APP_BACKUP_PG_DUMP_COMMAND`, `APP_BACKUP_PSQL_COMMAND`
 
 Recommended local dev values in `backend/.env.example` are:
 
@@ -178,10 +255,13 @@ Bootstrap behavior:
 - Idempotent setup helper for creating missing role/database.
 - It does not wipe existing tables/data by default.
 
-Dev database compatibility:
+Schema migration behavior:
 
-- The dev backend checks PostgreSQL on startup and repairs the local `users.role` constraint if an older database still only allows the previous staff role name.
-- If creating a `FRONT_DESK` internal user fails with `users_role_check`, restart the backend once so the dev compatibility check can update the constraint.
+- Database schema changes live in `backend/src/main/resources/db/migration`.
+- Flyway creates/updates tables before Hibernate validates the entity mapping.
+- Existing local databases without Flyway history are baselined safely, then the compatibility migration runs.
+- Hibernate is set to `validate` in `dev` and `prod`; it should not create production tables automatically.
+- Before pulling/running migrations on real clinic data, create a backup ZIP from `/admin/backups`.
 
 ### Start The Backend
 
@@ -254,6 +334,8 @@ Frontend default URL:
 - `dev` profile: local PostgreSQL, values must come from environment (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`)
 - `test` profile: in-memory H2 for repeatable tests
 - `prod` profile: strict externalized DB configuration
+- `dev`/`prod` schema management: Flyway migrations + Hibernate validation
+- `test` schema management: H2 create/drop for fast repeatable tests
 
 Secrets policy:
 
@@ -267,6 +349,8 @@ Main config files:
 - `backend/src/main/resources/application.properties`
 - `backend/src/main/resources/application-dev.properties`
 - `backend/src/main/resources/application-prod.properties`
+- `backend/src/main/resources/db/migration/V1__create_current_schema.sql`
+- `backend/src/main/resources/db/migration/V2__adopt_existing_hibernate_schema.sql`
 - `backend/src/test/resources/application-test.properties`
 
 ## Build and Test
@@ -305,6 +389,11 @@ PATH="$(pwd)/.tools/node/bin:$PATH" && cd frontend && npm run test -- --watch=fa
   - `GET /api/admin/users` (clinic-admin only; lists internal users, optional `?role=DOCTOR|FRONT_DESK|ALL`)
   - `POST /api/admin/users` (clinic-admin only; creates `DOCTOR`/`FRONT_DESK`)
   - `PATCH /api/admin/patients/{id}/assignment` (clinic-admin only; used by `/admin/assignments` to assign DOCTOR/FRONT_DESK usernames)
+  - `GET /api/admin/backups/status` (clinic-admin only; backup configuration and latest backup summary)
+  - `GET /api/admin/backups` (clinic-admin only; lists backup ZIP files)
+  - `POST /api/admin/backups` (clinic-admin only; creates a backup ZIP)
+  - `GET /api/admin/backups/{fileName}` (clinic-admin only; downloads a backup ZIP)
+  - `POST /api/admin/backups/restore` (clinic-admin only; restores from uploaded backup ZIP with `RESTORE` confirmation)
 - Patients:
   - `GET /api/patients`
   - `GET /api/patients/{id}`
@@ -312,6 +401,12 @@ PATH="$(pwd)/.tools/node/bin:$PATH" && cd frontend && npm run test -- --watch=fa
   - `PUT /api/patients/{id}`
   - `PATCH /api/patients/{id}/status`
   - `DELETE /api/patients/{id}`
+- Patient portal:
+  - `GET /api/patient-portal/dashboard` (`PATIENT` only; read-only verified linked patient summary and upcoming appointments)
+- Patient account links:
+  - `GET /api/patient-account-links/patient?patientNumber=...` (`ADMIN`/`FRONT_DESK`; loads clinic patient summary and current verified link status)
+  - `GET /api/patient-account-links/accounts?query=...` (`ADMIN`/`FRONT_DESK`; searches enabled patient portal accounts)
+  - `POST /api/patient-account-links/verify` (`ADMIN`/`FRONT_DESK`; activates a verified account-to-file link)
 - Cases:
   - `POST /api/cases/patients/{patientId}`
   - `GET /api/cases/{id}`

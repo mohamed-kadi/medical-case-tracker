@@ -14,6 +14,8 @@
 - Gestion du profil patient (phase d'extension des ecrans)
 - Suivi du cycle de vie des cas medicaux (phase d'extension des ecrans)
 - Chargement et telechargement des images medicales (phase d'extension des ecrans)
+- Sauvegarde et restauration admin (`/admin/backups`)
+- Impression de la carte patient depuis l'espace patient
 
 ## Workflow frontend actuel
 
@@ -28,6 +30,30 @@
 - L'interface supporte l'anglais et le francais.
 - La langue choisie est conservee dans le navigateur.
 - Les requetes API incluent automatiquement `Accept-Language: en` ou `Accept-Language: fr`.
+
+## Sauvegarde et restauration
+
+La sauvegarde/restauration est disponible seulement pour les admins de la clinique.
+
+Utilisez `/admin/backups` pour:
+
+- Creer une sauvegarde ZIP avant une mise a jour ou un changement de base de donnees.
+- Creer une sauvegarde ZIP a la fin de chaque journee clinique.
+- Telecharger le ZIP et garder une copie sur disque externe ou NAS fiable de la clinique.
+- Restaurer un ancien ZIP lors d'un changement de machine ou apres une mauvaise mise a jour.
+
+Regles importantes de restauration:
+
+- La restauration remplace la base actuelle et le dossier local des images medicales.
+- L'application cree une sauvegarde de securite avant la restauration.
+- L'admin doit taper `RESTORE` pour confirmer l'action.
+- Testez toujours une restauration sur une machine non-production avant de faire confiance au processus avec de vraies donnees cliniques.
+
+## Carte patient
+
+L'accueil peut ouvrir l'espace patient et imprimer la carte patient.
+
+La carte sert a identifier le dossier clinique avec le numero patient et des informations non-cliniques de base. Ce n'est pas un compte portail patient.
 
 ## Obtenir de l'aide
 

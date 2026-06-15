@@ -29,6 +29,9 @@
 - Role contract:
   - current role behavior (`ADMIN`, `DOCTOR`, `FRONT_DESK`, `PATIENT`) remains stable
   - future role split (`SYSTEM_ADMIN`, `CLINIC_ADMIN`) must ship with migration and compatibility tests
+- Schema migrations:
+  - every persistent model/table change must include a Flyway migration
+  - dev/prod use Hibernate validation only, not automatic table updates
 - Auth login/register:
   - validation errors
   - role restrictions
