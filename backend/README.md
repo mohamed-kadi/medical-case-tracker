@@ -128,15 +128,30 @@ Do not mix these paths:
 - If multiple enabled doctors exist, the patient remains without a doctor assignment until admin review.
 - If no enabled doctors exist, the patient remains without a doctor assignment until a doctor exists and is assigned.
 
-## Scheduling API (Phase 1)
+## Patient Directory API
+
+- `GET /api/patients/page?page=0&size=25&query=...&status=ACTIVE`: role-scoped patient search and pagination.
+- Page size is constrained to `1..100` and results use stable name sorting.
+- The original non-paged endpoints remain available for bounded workflow lookups.
+
+## Scheduling API
 
 - `POST /api/appointments/patients/{patientId}`: create appointment for a patient.
 - `GET /api/appointments/{id}`: read appointment with assignment-based access check.
 - `GET /api/appointments/patients/{patientId}`: list appointments for a patient.
-- `GET /api/appointments/upcoming`: list upcoming appointments filtered by role assignment.
+- `GET /api/appointments/upcoming?from=...&to=...`: list scheduled appointments filtered by role assignment and an optional bounded date range.
+- `GET /api/appointments/upcoming/page?page=0&size=25&from=...`: paginated upcoming schedule.
 - `PUT /api/appointments/{id}`: update appointment details.
 - `PATCH /api/appointments/{id}/status`: update appointment status.
 - `DELETE /api/appointments/{id}`: delete appointment.
+
+Appointment response and validation rules:
+
+- Responses include `patientId`, `patientNumber`, and `patientName` so clients do not need one patient request per row.
+- Create and reschedule operations require a future time.
+- A scheduled patient cannot occupy the same exact slot twice.
+- Patients assigned to the same doctor cannot occupy the same exact doctor slot.
+- The frontend uses status `CANCELLED` for normal cancellation so appointment history is retained.
 
 ## Patient Portal API
 

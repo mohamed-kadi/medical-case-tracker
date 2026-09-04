@@ -1,6 +1,6 @@
 # Documentation Hub
 
-This folder is the single entry point for product, engineering, testing, and user-facing documentation.
+This folder is the single entry point for product, engineering, testing, and user-facing documentation. The root [README](../README.md) is intentionally concise; detailed operational and workflow guidance lives here.
 
 Current planning baseline:
 
@@ -31,3 +31,11 @@ Current planning baseline:
 - Frontend UI is available in English and French.
 - Backend API responses can be localized using the `Accept-Language` header.
 - User-facing docs are maintained in both languages.
+
+## Documentation Ownership
+
+- `README.md`: product summary, quick start, key routes, and links only.
+- `backend/README.md`: backend configuration, database, API, backup, and operations.
+- `frontend/README.md`: frontend features, commands, structure, and localization.
+- `docs/developer/`: architecture, access control, delivery phases, and testing.
+- `docs/user/`: role-based workflows and support guidance.

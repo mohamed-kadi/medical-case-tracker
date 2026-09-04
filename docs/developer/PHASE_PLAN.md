@@ -43,17 +43,17 @@ Exit criteria:
 
 ## Phase 1 - Internal Clinic MVP
 
-Status: In progress (active build phase)
+Status: Feature-complete for the current pilot baseline; validation and pilot feedback remain
 
 - RBAC-safe internal workflow for `ADMIN`/`DOCTOR`/`FRONT_DESK`
 - Patient CRUD with assignment visibility boundaries
 - Case and image flows with service-layer access checks
-- Upcoming appointments API + dashboard integration
+- Safe appointment creation, paginated schedules, and interactive dashboard calendar
 - Basic audit events for key write operations
-- UX hardening: dashboard-first navigation and dedicated patient create/edit flows
+- UX hardening: role-focused dashboards, non-duplicated ownership, responsive navigation, localized dates/statuses, and shared UI behavior
 - Initial admin backup/restore workflow for local/offline deployments
 
-Current execution order inside Phase 1:
+Completed execution inside Phase 1:
 
 1. Freeze and test role boundaries (`docs/developer/RBAC_MATRIX.md`, security integration tests).
 2. Keep admin dashboard management-only (team + assignment) and clinical dashboard action-oriented.
@@ -61,7 +61,14 @@ Current execution order inside Phase 1:
 4. Add audit logging coverage for patient/case/image/appointment mutations.
    - Current: patient/case/image/appointment service audit events implemented and unit-tested.
    - Current: admin audit endpoint + frontend audit viewer implemented.
-   - Next: tighten audit retention/export policy and compliance-level reporting.
+5. Add appointment identity/conflict safeguards and scalable patient/appointment list endpoints.
+6. Protect destructive UI actions and centralize session-expiration behavior.
+
+Remaining closure work:
+
+- Run pilot-clinic acceptance testing on representative desktop and mobile devices.
+- Add Playwright coverage for the highest-risk cross-page workflows.
+- Define audit retention/export policy and compliance-level reporting.
 
 Exit criteria:
 
@@ -84,7 +91,7 @@ Exit criteria:
 
 Status: Planned
 
-- Scheduling enhancements (follow-up workflows, calendar quality-of-life)
+- Scheduling enhancements (duration-aware overlap rules, follow-up workflows, reminders)
 - Prescription + medication tracking
 - Structured clinical notes and specialty template packs
 - Operational exports/reporting

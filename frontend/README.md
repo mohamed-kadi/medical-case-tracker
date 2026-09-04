@@ -4,16 +4,22 @@ Angular frontend for Medical Case Tracker.
 
 ## Current Feature Scope
 
-- Public auth pages:
-  - `/login`
-  - `/register`
-- Protected page:
-  - `/dashboard` (JWT required)
+- Public login and patient-account registration
+- Role-specific dashboards for admin, doctor, and front desk users
+- Searchable, paginated patient directory with dedicated create/edit pages
+- Patient workspace with printable card, history, appointment summary, and case summary
+- Dedicated appointment scheduler with patient deep links and paginated schedule
+- Interactive upcoming-appointment calendar with colored dates and patient details
+- Doctor-only case and medical-image workspace
+- Admin team, assignment, audit, and backup/restore pages
+- Verified account-linking workflow and limited read-only patient portal
+- Responsive navigation drawer and mobile appointment cards
 - HTTP interceptors:
   - `Authorization: Bearer <token>`
   - `Accept-Language: en|fr`
-- Language switcher with persisted preference
-- English/French UI dictionary
+  - centralized expired-session logout and redirect
+- English/French UI, status, date, feedback, and accessibility localization
+- Shared localized-date/status pipes, confirmation service, and feedback component
 
 ## Prerequisites
 
@@ -24,7 +30,7 @@ Angular frontend for Medical Case Tracker.
 If using the local repo Node runtime, prefix commands with:
 
 ```bash
-PATH="$(pwd)/.tools/node/bin:$PATH"
+export PATH="$(pwd)/.tools/node/bin:$PATH"
 ```
 
 ## Run Locally
@@ -58,7 +64,7 @@ PATH="$(pwd)/.tools/node/bin:$PATH" && cd frontend && npm run test -- --watch=fa
 - Core auth/lang services: `src/app/core/services`
 - Interceptors and guard: `src/app/core/interceptors`, `src/app/core/guards`
 - Feature pages: `src/app/features`
-- Shared components: `src/app/shared`
+- Shared components, pipes, and confirmation behavior: `src/app/shared`
 - Environment settings: `src/environments`
 
 ## Localization

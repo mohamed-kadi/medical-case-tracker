@@ -66,6 +66,7 @@ Target contract (future phase):
 - Patients directory page: `frontend/src/app/features/patients/patients-page.component.ts`
 - Patient form page (create/edit routes): `frontend/src/app/features/patients/patient-form-page.component.ts`
 - Patient case workspace page: `frontend/src/app/features/cases/patient-cases-page.component.ts`
+- Appointment scheduler and paginated schedule: `frontend/src/app/features/appointments/appointments-page.component.ts`
 - Security and HTTP flow: `frontend/src/app/core/interceptors`, `frontend/src/app/core/guards`
 - Route access guards:
   - `authGuard` protects workspace routes
@@ -88,6 +89,17 @@ Target contract (future phase):
 - Case and image API services: `frontend/src/app/core/services/case.service.ts`, `frontend/src/app/core/services/image.service.ts`
 - UI localization: `frontend/src/app/core/services/language.service.ts`, `frontend/src/app/core/services/i18n.service.ts`
 - Shared language selector: `frontend/src/app/shared/language-switcher.component.ts`
+- Shared UI primitives: localized-date/status pipes, page feedback component, and confirmation service in `frontend/src/app/shared`
+
+## Scheduling and Directory Contracts
+
+- Patient directory queries use `GET /api/patients/page` for role-scoped search, status filtering, and bounded pagination.
+- Full upcoming schedules use `GET /api/appointments/upcoming/page`; the shell calendar uses a bounded `from`/`to` request for the visible month.
+- Appointment DTOs carry patient identity (`patientId`, patient number, and display name) to avoid client-side N+1 lookups.
+- Appointment create/reschedule operations reject past times and exact scheduled-slot conflicts for the patient or assigned doctor.
+- The patient workspace summarizes appointment history but delegates appointment creation to `/appointments?patientId=...`.
+- Normal UI removal changes appointment status to `CANCELLED`; the delete endpoint remains an explicit API operation.
+- Expired API sessions are handled centrally by the auth interceptor and redirected to sign-in with an expiry reason.
 
 ## Quality Anchors
 

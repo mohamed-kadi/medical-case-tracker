@@ -17,10 +17,11 @@
 ## Information to include in a support request
 
 - Timestamp
-- Endpoint or screen used (`/login`, `/register`, `/dashboard`, API path)
+- Screen or endpoint used (for example `/appointments`, `/patients/:id`, `/admin/backups`, or an API path)
 - Patient or case ID (if applicable)
 - Error message
 - Preferred language: English or French
+- Do not include medical notes, images, credentials, JWTs, or database backups in an ordinary support request.
 
 ## SLA Targets (recommended baseline)
 
