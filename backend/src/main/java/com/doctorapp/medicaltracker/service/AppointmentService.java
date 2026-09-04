@@ -2,6 +2,8 @@ package com.doctorapp.medicaltracker.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.doctorapp.medicaltracker.model.Appointment;
 import com.doctorapp.medicaltracker.model.AppointmentStatus;
@@ -14,7 +16,13 @@ public interface AppointmentService {
 
     List<Appointment> getAppointmentsByPatientId(Long patientId);
 
-    List<Appointment> getUpcomingAppointments(LocalDateTime fromDateTime);
+    default List<Appointment> getUpcomingAppointments(LocalDateTime fromDateTime) {
+        return getUpcomingAppointments(fromDateTime, null);
+    }
+
+    List<Appointment> getUpcomingAppointments(LocalDateTime fromDateTime, LocalDateTime toDateTime);
+
+    Page<Appointment> getUpcomingAppointmentPage(LocalDateTime fromDateTime, Pageable pageable);
 
     Appointment updateAppointment(Long id, Appointment appointmentDetails);
 

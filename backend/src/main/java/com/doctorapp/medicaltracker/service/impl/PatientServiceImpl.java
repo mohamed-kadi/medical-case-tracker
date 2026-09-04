@@ -2,10 +2,14 @@ package com.doctorapp.medicaltracker.service.impl;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -52,6 +56,37 @@ public class PatientServiceImpl implements PatientService {
             case FRONT_DESK -> redactPatients(patientRepository.findAll(), accessScope);
             case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
         };
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Patient> getPatientPage(String query, PatientStatus status, Pageable pageable) {
+        AccessScope accessScope = getAccessScope();
+        if (accessScope.role() == AccessRole.DENIED) {
+            throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
+        }
+
+        Specification<Patient> specification = Specification.where(null);
+        if (accessScope.role() == AccessRole.DOCTOR) {
+            specification = specification.and((root, criteriaQuery, builder) ->
+                    builder.equal(root.get("assignedDoctorUsername"), accessScope.username()));
+        }
+        if (status != null) {
+            specification = specification.and((root, criteriaQuery, builder) ->
+                    builder.equal(root.get("status"), status));
+        }
+        if (query != null && !query.isBlank()) {
+            String searchPattern = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";
+            specification = specification.and((root, criteriaQuery, builder) -> builder.or(
+                    builder.like(builder.lower(root.get("firstName")), searchPattern),
+                    builder.like(builder.lower(root.get("lastName")), searchPattern),
+                    builder.like(builder.lower(root.get("email")), searchPattern),
+                    builder.like(builder.lower(root.get("patientNumber")), searchPattern),
+                    builder.like(builder.lower(root.get("phoneNumber")), searchPattern)));
+        }
+
+        return patientRepository.findAll(specification, pageable)
+                .map(patient -> redactPatient(patient, accessScope));
     }
 
     @Override

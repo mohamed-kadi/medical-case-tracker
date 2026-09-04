@@ -25,6 +25,7 @@ import com.doctorapp.medicaltracker.exception.InvalidCaseStatusException;
 import com.doctorapp.medicaltracker.exception.MedicalCaseNotFoundException;
 import com.doctorapp.medicaltracker.exception.PatientNotFoundException;
 import com.doctorapp.medicaltracker.exception.AppointmentNotFoundException;
+import com.doctorapp.medicaltracker.exception.AppointmentConflictException;
 import com.doctorapp.medicaltracker.exception.BackupOperationException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
@@ -84,6 +85,14 @@ public class GlobalExceptionHandler {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(AppointmentConflictException.class)
+    public ResponseEntity<Map<String, String>> handleAppointmentConflict(AppointmentConflictException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("code", "APPOINTMENT_TIME_CONFLICT");
+        error.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(MedicalCaseNotFoundException.class)

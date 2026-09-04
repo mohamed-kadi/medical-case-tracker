@@ -3,11 +3,15 @@ import com.doctorapp.medicaltracker.model.Patient;
 import com.doctorapp.medicaltracker.model.PatientStatus;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 
 public interface PatientService {
 
     List<Patient> getAllPatients();
+
+    Page<Patient> getPatientPage(String query, PatientStatus status, Pageable pageable);
 
     Patient getPatientById(Long id);
 

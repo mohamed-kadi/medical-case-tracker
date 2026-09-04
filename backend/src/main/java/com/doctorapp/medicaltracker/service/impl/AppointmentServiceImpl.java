@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.doctorapp.medicaltracker.exception.AppointmentNotFoundException;
+import com.doctorapp.medicaltracker.exception.AppointmentConflictException;
 import com.doctorapp.medicaltracker.model.Appointment;
 import com.doctorapp.medicaltracker.model.AppointmentStatus;
 import com.doctorapp.medicaltracker.model.Patient;
@@ -44,6 +47,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         validateReason(appointment.getReason());
 
         Patient patient = patientService.getPatientById(patientId);
+        assertTimeSlotAvailable(patient, appointment.getScheduledAt(), null);
         appointment.setPatient(patient);
         appointment.setStatus(AppointmentStatus.SCHEDULED);
 
@@ -74,9 +78,24 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Appointment> getUpcomingAppointments(LocalDateTime fromDateTime) {
+    public List<Appointment> getUpcomingAppointments(LocalDateTime fromDateTime, LocalDateTime toDateTime) {
         LocalDateTime effectiveFromDate = fromDateTime == null ? LocalDateTime.now() : fromDateTime;
+        if (toDateTime != null && !toDateTime.isAfter(effectiveFromDate)) {
+            throw new IllegalArgumentException("End time must be after start time");
+        }
         AccessScope accessScope = getAccessScope();
+
+        if (toDateTime != null) {
+            return switch (accessScope.role()) {
+                case ADMIN_OR_SYSTEM, FRONT_DESK -> appointmentRepository
+                        .findByScheduledAtGreaterThanEqualAndScheduledAtLessThanAndStatusOrderByScheduledAtAsc(
+                                effectiveFromDate, toDateTime, AppointmentStatus.SCHEDULED);
+                case DOCTOR -> appointmentRepository
+                        .findByScheduledAtGreaterThanEqualAndScheduledAtLessThanAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                                effectiveFromDate, toDateTime, AppointmentStatus.SCHEDULED, accessScope.username());
+                case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
+            };
+        }
 
         return switch (accessScope.role()) {
             case ADMIN_OR_SYSTEM -> appointmentRepository.findByScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(
@@ -95,6 +114,22 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<Appointment> getUpcomingAppointmentPage(LocalDateTime fromDateTime, Pageable pageable) {
+        LocalDateTime effectiveFromDate = fromDateTime == null ? LocalDateTime.now() : fromDateTime;
+        AccessScope accessScope = getAccessScope();
+        return switch (accessScope.role()) {
+            case ADMIN_OR_SYSTEM, FRONT_DESK -> appointmentRepository
+                    .findByScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(
+                            effectiveFromDate, AppointmentStatus.SCHEDULED, pageable);
+            case DOCTOR -> appointmentRepository
+                    .findByScheduledAtGreaterThanEqualAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                            effectiveFromDate, AppointmentStatus.SCHEDULED, accessScope.username(), pageable);
+            case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
+        };
+    }
+
+    @Override
     public Appointment updateAppointment(Long id, Appointment appointmentDetails) {
         Appointment existingAppointment = getAppointmentById(id);
         if (appointmentDetails == null) {
@@ -103,6 +138,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         if (appointmentDetails.getScheduledAt() != null) {
             validateScheduledAt(appointmentDetails.getScheduledAt());
+            assertTimeSlotAvailable(
+                    existingAppointment.getPatient(),
+                    appointmentDetails.getScheduledAt(),
+                    existingAppointment.getId());
             existingAppointment.setScheduledAt(appointmentDetails.getScheduledAt());
         }
         if (appointmentDetails.getReason() != null) {
@@ -162,11 +201,34 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (scheduledAt == null) {
             throw new IllegalArgumentException(SCHEDULED_AT_REQUIRED_MESSAGE);
         }
+        if (scheduledAt.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Scheduled time must be in the future");
+        }
     }
 
     private void validateReason(String reason) {
         if (reason == null || reason.trim().isEmpty()) {
             throw new IllegalArgumentException(REASON_REQUIRED_MESSAGE);
+        }
+    }
+
+    private void assertTimeSlotAvailable(Patient patient, LocalDateTime scheduledAt, Long excludedAppointmentId) {
+        boolean patientConflict = excludedAppointmentId == null
+                ? appointmentRepository.existsByPatientIdAndScheduledAtAndStatus(
+                        patient.getId(), scheduledAt, AppointmentStatus.SCHEDULED)
+                : appointmentRepository.existsByPatientIdAndScheduledAtAndStatusAndIdNot(
+                        patient.getId(), scheduledAt, AppointmentStatus.SCHEDULED, excludedAppointmentId);
+
+        String doctorUsername = patient.getAssignedDoctorUsername();
+        boolean doctorConflict = doctorUsername != null && !doctorUsername.isBlank()
+                && (excludedAppointmentId == null
+                        ? appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatus(
+                                doctorUsername, scheduledAt, AppointmentStatus.SCHEDULED)
+                        : appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusAndIdNot(
+                                doctorUsername, scheduledAt, AppointmentStatus.SCHEDULED, excludedAppointmentId));
+
+        if (patientConflict || doctorConflict) {
+            throw new AppointmentConflictException();
         }
     }
 

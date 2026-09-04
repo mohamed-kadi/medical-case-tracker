@@ -23,6 +23,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 
 import com.doctorapp.medicaltracker.exception.PatientNotFoundException;
 import com.doctorapp.medicaltracker.model.Patient;
@@ -117,6 +121,23 @@ public class PatientServiceImplTest {
         assertEquals(1, result.size());
         assertEquals(testPatient.getId(), result.get(0).getId());
         verify(patientRepository).findByAssignedDoctorUsername("doctorOne");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getPatientPage_whenFrontDeskAuthenticated_returnsPagedRedactedPatients() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("staffOne", "n/a", "ROLE_FRONT_DESK"));
+        testPatient.setMedicalHistory("private clinical history");
+        PageRequest pageable = PageRequest.of(0, 25);
+        when(patientRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(testPatient), pageable, 1));
+
+        Page<Patient> result = patientService.getPatientPage("john", PatientStatus.ACTIVE, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("John", result.getContent().get(0).getFirstName());
+        assertEquals(null, result.getContent().get(0).getMedicalHistory());
     }
 
     @Test

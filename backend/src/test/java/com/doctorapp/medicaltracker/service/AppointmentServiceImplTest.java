@@ -23,8 +23,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import com.doctorapp.medicaltracker.exception.AppointmentNotFoundException;
+import com.doctorapp.medicaltracker.exception.AppointmentConflictException;
 import com.doctorapp.medicaltracker.model.Appointment;
 import com.doctorapp.medicaltracker.model.AppointmentStatus;
 import com.doctorapp.medicaltracker.model.Patient;
@@ -80,6 +84,41 @@ class AppointmentServiceImplTest {
     }
 
     @Test
+    void getUpcomingAppointments_withEndTime_usesBoundedDoctorQuery() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
+        LocalDateTime fromDateTime = LocalDateTime.of(2030, 4, 1, 0, 0);
+        LocalDateTime toDateTime = LocalDateTime.of(2030, 5, 1, 0, 0);
+        Appointment appointment = appointmentWithPatient(15L, 5L);
+
+        when(appointmentRepository
+                .findByScheduledAtGreaterThanEqualAndScheduledAtLessThanAndStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                        fromDateTime, toDateTime, AppointmentStatus.SCHEDULED, "doctorOne"))
+                .thenReturn(List.of(appointment));
+
+        List<Appointment> result = appointmentService.getUpcomingAppointments(fromDateTime, toDateTime);
+
+        assertEquals(List.of(appointment), result);
+    }
+
+    @Test
+    void getUpcomingAppointmentPage_whenFrontDeskAuthenticated_returnsPage() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("staffOne", "n/a", "ROLE_FRONT_DESK"));
+        LocalDateTime fromDateTime = LocalDateTime.of(2030, 4, 1, 0, 0);
+        PageRequest pageable = PageRequest.of(0, 25);
+        Appointment appointment = appointmentWithPatient(16L, 6L);
+        when(appointmentRepository.findByScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(
+                fromDateTime, AppointmentStatus.SCHEDULED, pageable))
+                .thenReturn(new PageImpl<>(List.of(appointment), pageable, 1));
+
+        Page<Appointment> result = appointmentService.getUpcomingAppointmentPage(fromDateTime, pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals(16L, result.getContent().get(0).getId());
+    }
+
+    @Test
     void getAppointmentById_whenPatientIsNotAccessible_throwsAccessDeniedException() {
         Appointment appointment = appointmentWithPatient(20L, 5L);
         when(appointmentRepository.findById(20L)).thenReturn(Optional.of(appointment));
@@ -100,7 +139,7 @@ class AppointmentServiceImplTest {
         patient.setDateOfBirth(LocalDate.of(1990, 1, 1));
 
         Appointment appointment = new Appointment();
-        appointment.setScheduledAt(LocalDateTime.of(2026, 4, 20, 11, 30));
+        appointment.setScheduledAt(LocalDateTime.now().plusDays(2));
         appointment.setReason("Initial consult");
         appointment.setStatus(null);
 
@@ -133,7 +172,7 @@ class AppointmentServiceImplTest {
         patient.setDateOfBirth(LocalDate.of(1990, 1, 1));
 
         Appointment appointment = new Appointment();
-        appointment.setScheduledAt(LocalDateTime.of(2026, 4, 20, 11, 30));
+        appointment.setScheduledAt(LocalDateTime.now().plusDays(2));
         appointment.setReason("Initial consult");
         appointment.setStatus(AppointmentStatus.COMPLETED);
 
@@ -143,6 +182,51 @@ class AppointmentServiceImplTest {
         Appointment created = appointmentService.createAppointment(9L, appointment);
 
         assertEquals(AppointmentStatus.SCHEDULED, created.getStatus());
+    }
+
+    @Test
+    void createAppointment_whenScheduledInPast_rejectsAppointment() {
+        Appointment appointment = new Appointment();
+        appointment.setScheduledAt(LocalDateTime.now().minusMinutes(5));
+        appointment.setReason("Late entry");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> appointmentService.createAppointment(9L, appointment));
+    }
+
+    @Test
+    void createAppointment_whenPatientAlreadyHasScheduledSlot_rejectsAppointment() {
+        LocalDateTime scheduledAt = LocalDateTime.now().plusDays(2);
+        Patient patient = new Patient();
+        patient.setId(9L);
+        Appointment appointment = new Appointment();
+        appointment.setScheduledAt(scheduledAt);
+        appointment.setReason("Follow-up");
+
+        when(patientService.getPatientById(9L)).thenReturn(patient);
+        when(appointmentRepository.existsByPatientIdAndScheduledAtAndStatus(
+                9L, scheduledAt, AppointmentStatus.SCHEDULED)).thenReturn(true);
+
+        assertThrows(AppointmentConflictException.class,
+                () -> appointmentService.createAppointment(9L, appointment));
+    }
+
+    @Test
+    void createAppointment_whenAssignedDoctorAlreadyHasScheduledSlot_rejectsAppointment() {
+        LocalDateTime scheduledAt = LocalDateTime.now().plusDays(2);
+        Patient patient = new Patient();
+        patient.setId(9L);
+        patient.setAssignedDoctorUsername("doctorOne");
+        Appointment appointment = new Appointment();
+        appointment.setScheduledAt(scheduledAt);
+        appointment.setReason("Follow-up");
+
+        when(patientService.getPatientById(9L)).thenReturn(patient);
+        when(appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatus(
+                "doctorOne", scheduledAt, AppointmentStatus.SCHEDULED)).thenReturn(true);
+
+        assertThrows(AppointmentConflictException.class,
+                () -> appointmentService.createAppointment(9L, appointment));
     }
 
     @Test

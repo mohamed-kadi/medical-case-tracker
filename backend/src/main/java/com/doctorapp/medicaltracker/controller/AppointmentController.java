@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.doctorapp.medicaltracker.dto.AppointmentStatusUpdateRequest;
+import com.doctorapp.medicaltracker.dto.AppointmentResponse;
+import com.doctorapp.medicaltracker.dto.PageResponse;
 import com.doctorapp.medicaltracker.model.Appointment;
 import com.doctorapp.medicaltracker.service.AppointmentService;
 
@@ -33,7 +36,7 @@ public class AppointmentController {
     private final AppointmentService appointmentService;
 
     @PostMapping("/patients/{patientId}")
-    public ResponseEntity<Appointment> createAppointment(
+    public ResponseEntity<AppointmentResponse> createAppointment(
             @PathVariable Long patientId,
             @Valid @RequestBody Appointment appointment) {
         Appointment createdAppointment = appointmentService.createAppointment(patientId, appointment);
@@ -42,40 +45,57 @@ public class AppointmentController {
                 .path("/{id}")
                 .buildAndExpand(createdAppointment.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(createdAppointment);
+        return ResponseEntity.created(location).body(AppointmentResponse.from(createdAppointment));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Appointment> getAppointmentById(@PathVariable Long id) {
+    public ResponseEntity<AppointmentResponse> getAppointmentById(@PathVariable Long id) {
         Appointment appointment = appointmentService.getAppointmentById(id);
-        return ResponseEntity.ok(appointment);
+        return ResponseEntity.ok(AppointmentResponse.from(appointment));
     }
 
     @GetMapping("/patients/{patientId}")
-    public ResponseEntity<List<Appointment>> getAppointmentsByPatientId(@PathVariable Long patientId) {
-        return ResponseEntity.ok(appointmentService.getAppointmentsByPatientId(patientId));
+    public ResponseEntity<List<AppointmentResponse>> getAppointmentsByPatientId(@PathVariable Long patientId) {
+        return ResponseEntity.ok(appointmentService.getAppointmentsByPatientId(patientId).stream()
+                .map(AppointmentResponse::from)
+                .toList());
     }
 
     @GetMapping("/upcoming")
-    public ResponseEntity<List<Appointment>> getUpcomingAppointments(
+    public ResponseEntity<List<AppointmentResponse>> getUpcomingAppointments(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        return ResponseEntity.ok(appointmentService.getUpcomingAppointments(from, to).stream()
+                .map(AppointmentResponse::from)
+                .toList());
+    }
+
+    @GetMapping("/upcoming/page")
+    public ResponseEntity<PageResponse<AppointmentResponse>> getUpcomingAppointmentPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from) {
-        return ResponseEntity.ok(appointmentService.getUpcomingAppointments(from));
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return ResponseEntity.ok(PageResponse.from(
+                appointmentService.getUpcomingAppointmentPage(from, PageRequest.of(safePage, safeSize))
+                        .map(AppointmentResponse::from)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Appointment> updateAppointment(
+    public ResponseEntity<AppointmentResponse> updateAppointment(
             @PathVariable Long id,
             @Valid @RequestBody Appointment appointmentDetails) {
         Appointment updatedAppointment = appointmentService.updateAppointment(id, appointmentDetails);
-        return ResponseEntity.ok(updatedAppointment);
+        return ResponseEntity.ok(AppointmentResponse.from(updatedAppointment));
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<Appointment> updateAppointmentStatus(
+    public ResponseEntity<AppointmentResponse> updateAppointmentStatus(
             @PathVariable Long id,
             @Valid @RequestBody AppointmentStatusUpdateRequest request) {
         Appointment updatedAppointment = appointmentService.updateAppointmentStatus(id, request.getStatus());
-        return ResponseEntity.ok(updatedAppointment);
+        return ResponseEntity.ok(AppointmentResponse.from(updatedAppointment));
     }
 
     @DeleteMapping("/{id}")

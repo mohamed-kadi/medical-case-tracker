@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +23,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.doctorapp.medicaltracker.model.Patient;
 import com.doctorapp.medicaltracker.model.PatientStatus;
+import com.doctorapp.medicaltracker.dto.PageResponse;
 import com.doctorapp.medicaltracker.service.PatientService;
 
 import jakarta.validation.Valid;
@@ -34,9 +37,24 @@ public class PatientController {
     private final PatientService patientService;
     
     @GetMapping
-        public ResponseEntity<List<Patient>> getAllPatients() {
+    public ResponseEntity<List<Patient>> getAllPatients() {
         List<Patient> patients = patientService.getAllPatients();
         return ResponseEntity.ok(patients);
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<Patient>> getPatientPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) PatientStatus status) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest pageable = PageRequest.of(
+                safePage,
+                safeSize,
+                Sort.by(Sort.Order.asc("lastName"), Sort.Order.asc("firstName")));
+        return ResponseEntity.ok(PageResponse.from(patientService.getPatientPage(query, status, pageable)));
     }
 
     @GetMapping("/{id}")    
