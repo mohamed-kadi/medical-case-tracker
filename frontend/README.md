@@ -8,7 +8,7 @@ Angular frontend for Medical Case Tracker.
 - Role-specific dashboards for admin, doctor, and front desk users
 - Searchable, paginated patient directory with dedicated create/edit pages
 - Patient workspace with printable card, history, appointment summary, and case summary
-- Dedicated appointment scheduler with patient deep links and paginated schedule
+- Search-first appointment scheduler with patient deep links, standard reason choices, optional patient-reported intake checklist, and a collapsible paginated schedule
 - Interactive upcoming-appointment calendar with colored dates and patient details
 - Doctor-only case and medical-image workspace
 - Admin team, assignment, audit, and backup/restore pages
@@ -19,7 +19,7 @@ Angular frontend for Medical Case Tracker.
   - `Accept-Language: en|fr`
   - centralized expired-session logout and redirect
 - English/French UI, status, date, feedback, and accessibility localization
-- Shared localized-date/status pipes, confirmation service, and feedback component
+- Shared localized-date/status/reason pipes, accessible in-app confirmation dialog, and feedback component
 
 ## Prerequisites
 

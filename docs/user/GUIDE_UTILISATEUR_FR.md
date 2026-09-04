@@ -15,10 +15,13 @@ L'inscription publique crée uniquement un compte pour le portail patient. Elle 
 1. Ouvrez **Patients** et recherchez par identité, coordonnées ou numéro patient.
 2. Créez le dossier s'il n'existe pas. L'application attribue un numéro patient et conserve l'identité de la personne qui l'a enregistré.
 3. Ouvrez l'espace patient pour vérifier les informations non cliniques et imprimer la carte patient.
-4. Sélectionnez **Planifier un rendez-vous**. La page des rendez-vous s'ouvre avec ce patient présélectionné.
-5. Choisissez une date et une heure futures et saisissez le motif. L'application bloque un créneau déjà réservé pour le patient ou son médecin assigné.
-6. Consultez les visites à venir dans **Rendez-vous** ou dans le calendrier du tableau de bord. Les dates colorées contiennent des rendez-vous ; survolez, ciblez au clavier ou sélectionnez une date pour voir les patients.
-7. Utilisez **Comptes patients** seulement après vérification de la carte, du numéro et de l'identité. Les données du portail restent masquées tant que le lien n'est pas vérifié.
+4. Sur la page des rendez-vous, recherchez d'abord les dossiers existants par nom, numéro patient, email ou téléphone. Tous les statuts correspondants sont affichés afin d'éviter les doublons ; un dossier non actif doit être vérifié avant la planification.
+5. Sélectionnez **Planifier un rendez-vous** depuis l'espace patient pour ouvrir la même page avec ce patient présélectionné.
+6. Choisissez une date/heure future et un motif courant dans la liste, ou choisissez **Autre** et saisissez-le. L'application bloque un créneau déjà réservé pour le patient ou son médecin assigné.
+7. Si l'appelant fournit spontanément des informations pertinentes, ouvrez la liste facultative déclarée par le patient. Notez seulement les indicateurs nécessitant un suivi et de courtes notes de planification ; l'historique clinique détaillé appartient à l'espace médecin.
+8. La liste des rendez-vous à venir est repliée par défaut. Ouvrez-la si nécessaire ou utilisez le calendrier du tableau de bord. Les dates colorées contiennent des rendez-vous ; survolez, ciblez au clavier ou sélectionnez une date pour voir les patients.
+9. L'annulation ouvre une boîte de confirmation intégrée et conserve le rendez-vous dans l'historique avec le statut annulé.
+10. Utilisez **Comptes patients** seulement après vérification de la carte, du numéro et de l'identité. Les données du portail restent masquées tant que le lien n'est pas vérifié.
 
 L'accueil ne peut pas consulter les antécédents médicaux, les cas, les images ni les notes cliniques.
 

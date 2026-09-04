@@ -15,10 +15,13 @@ Public registration creates a patient portal login only. It does not create an o
 1. Open **Patients** and search by identity, contact information, or patient number.
 2. Create the patient file if it does not exist. The app assigns a patient number and records the registrar.
 3. Open the patient workspace to review non-clinical information and print the patient card.
-4. Select **Schedule appointment**. The appointments page opens with that patient preselected.
-5. Choose a future date and time and enter the reason. The app blocks an already-booked patient or assigned-doctor slot.
-6. Use **Appointments** or the dashboard calendar to review upcoming visits. Colored dates contain appointments; hover, focus, or select a date to see patient details.
-7. Use **Patient accounts** only after checking the patient number/card and identity. Portal data remains hidden until the link is verified.
+4. On the appointments page, search the existing files first by name, patient number, email, or phone. All matching statuses are shown to help avoid duplicate records; a non-active file must be reviewed before scheduling.
+5. Select **Schedule appointment** from a patient workspace to open the same page with that patient preselected.
+6. Choose a future date/time and a common reason from the list, or select **Other** and enter it. The app blocks an already-booked patient or assigned-doctor slot.
+7. If the caller volunteers relevant information, open the optional patient-reported checklist. Record only the flags requiring follow-up and short scheduling notes; detailed clinical history belongs in the doctor workspace.
+8. The upcoming schedule is collapsed by default. Expand it when needed, or use the dashboard calendar. Colored dates contain appointments; hover, focus, or select a date to see patient details.
+9. Cancelling an appointment opens an in-app confirmation dialog and retains the appointment as cancelled history.
+10. Use **Patient accounts** only after checking the patient number/card and identity. Portal data remains hidden until the link is verified.
 
 Front desk users cannot see medical history, cases, images, or clinical notes.
 
