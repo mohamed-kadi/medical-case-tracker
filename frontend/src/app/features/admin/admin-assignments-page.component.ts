@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { AdminUserResponse } from '../../core/models/admin-user.model';
@@ -20,20 +19,9 @@ interface AssignmentDraft {
 @Component({
   selector: 'app-admin-assignments-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
     <section class="assignments-shell">
-      <header class="assignments-header">
-        <div>
-          <h1>{{ i18n.t('admin.assignments.title') }}</h1>
-          <p>{{ i18n.t('admin.assignments.description') }}</p>
-        </div>
-        <div class="header-actions">
-          <a class="secondary-action" routerLink="/admin/users">{{ i18n.t('admin.assignments.actions.team') }}</a>
-          <a class="secondary-action" routerLink="/dashboard">{{ i18n.t('admin.assignments.actions.dashboard') }}</a>
-        </div>
-      </header>
-
       <section class="overview">
         <article class="overview-card">
           <span>{{ i18n.t('admin.assignments.metrics.totalPatients') }}</span>
@@ -148,49 +136,11 @@ interface AssignmentDraft {
       gap: 1rem;
     }
 
-    .assignments-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: end;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(1.7rem, 2.25vw, 2.45rem);
-      line-height: 1.08;
-    }
-
-    .assignments-header p,
     .empty,
     .loading {
       margin: 0.35rem 0 0;
       color: var(--muted);
       line-height: 1.42;
-    }
-
-    .header-actions {
-      display: inline-flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .secondary-action {
-      color: var(--ink);
-      text-decoration: none;
-      border: 1px solid var(--surface-strong);
-      border-radius: 0.58rem;
-      background: var(--surface);
-      padding: 0.52rem 0.74rem;
-      font-weight: 800;
-      font-size: 0.84rem;
-      white-space: nowrap;
-    }
-
-    .secondary-action:hover {
-      border-color: color-mix(in srgb, var(--accent) 45%, var(--surface-strong));
-      background: color-mix(in srgb, var(--accent) 13%, var(--surface));
     }
 
     .overview {

@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { Patient, PatientAssignmentRequest, PatientUpsertRequest } from '../models/patient.model';
+import { Patient, PatientAssignmentRequest, PatientPage, PatientUpsertRequest } from '../models/patient.model';
 
 @Injectable({ providedIn: 'root' })
 export class PatientService {
@@ -13,6 +13,17 @@ export class PatientService {
 
   getVisiblePatients(): Observable<Patient[]> {
     return this.http.get<Patient[]>(`${this.apiBaseUrl}/api/patients`);
+  }
+
+  getVisiblePatientPage(page: number, size: number, query?: string, status?: string): Observable<PatientPage> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (query?.trim()) {
+      params = params.set('query', query.trim());
+    }
+    if (status?.trim()) {
+      params = params.set('status', status.trim());
+    }
+    return this.http.get<PatientPage>(`${this.apiBaseUrl}/api/patients/page`, { params });
   }
 
   getPatientById(patientId: number): Observable<Patient> {

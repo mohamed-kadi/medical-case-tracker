@@ -15,14 +15,16 @@ describe('AppointmentsPageComponent', () => {
 
   beforeEach(async () => {
     appointmentServiceSpy = jasmine.createSpyObj<AppointmentService>('AppointmentService', [
-      'getUpcomingAppointments',
+      'getUpcomingAppointmentPage',
       'createAppointment',
       'updateAppointmentStatus'
     ]);
     patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', ['getVisiblePatients']);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
 
-    appointmentServiceSpy.getUpcomingAppointments.and.returnValue(of([]));
+    appointmentServiceSpy.getUpcomingAppointmentPage.and.returnValue(
+      of({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0, last: true })
+    );
     appointmentServiceSpy.createAppointment.and.returnValue(
       of({
         id: 81,
@@ -73,9 +75,32 @@ describe('AppointmentsPageComponent', () => {
     const component = fixture.componentInstance;
 
     expect(patientServiceSpy.getVisiblePatients).toHaveBeenCalled();
-    expect(appointmentServiceSpy.getUpcomingAppointments).toHaveBeenCalled();
+    expect(appointmentServiceSpy.getUpcomingAppointmentPage).toHaveBeenCalledWith(0, 25);
     expect(component.patients.length).toBe(1);
     expect(component.patients[0].id).toBe(10);
+  });
+
+  it('shows patient identity in the upcoming appointments table', () => {
+    appointmentServiceSpy.getUpcomingAppointmentPage.and.returnValue(
+      of({ content: [
+        {
+          id: 81,
+          patientId: 10,
+          patientName: 'John Doe',
+          patientNumber: 'MT-2030-000010',
+          scheduledAt: '2030-01-02T14:00:00',
+          reason: 'Follow-up',
+          notes: null,
+          status: 'SCHEDULED'
+        }
+      ], page: 0, size: 25, totalElements: 1, totalPages: 1, last: true })
+    );
+    const fixture = TestBed.createComponent(AppointmentsPageComponent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('John Doe');
+    expect(fixture.nativeElement.textContent).toContain('MT-2030-000010');
+    expect(fixture.nativeElement.querySelector('a[href="/patients/10"]')).not.toBeNull();
   });
 
   it('creates appointment with normalized values', () => {
@@ -134,6 +159,49 @@ describe('AppointmentsPageComponent', () => {
     component.createAppointment();
 
     expect(component.errorMessage).toBe('Reason is required');
+  });
+
+  it('shows localized feedback when the appointment slot conflicts', () => {
+    appointmentServiceSpy.createAppointment.and.returnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 409,
+            error: { code: 'APPOINTMENT_TIME_CONFLICT', error: 'server fallback' }
+          })
+      )
+    );
+
+    const fixture = TestBed.createComponent(AppointmentsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.form.patchValue({
+      patientId: 10,
+      scheduledAt: '2030-01-02T14:00',
+      reason: 'Follow-up',
+      notes: ''
+    });
+
+    component.createAppointment();
+
+    expect(component.errorMessage).toBe('appointments.create.conflictError');
+  });
+
+  it('rejects a past date before calling the API', () => {
+    const fixture = TestBed.createComponent(AppointmentsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.form.patchValue({
+      patientId: 10,
+      scheduledAt: '2020-01-02T14:00',
+      reason: 'Follow-up',
+      notes: ''
+    });
+
+    component.createAppointment();
+
+    expect(appointmentServiceSpy.createAppointment).not.toHaveBeenCalled();
+    expect(component.errorMessage).toBe('appointments.create.pastError');
   });
 
   it('cancels appointment when user confirms', () => {

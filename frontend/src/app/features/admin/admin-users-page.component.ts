@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 
 import { AdminUserResponse, InternalUserRole } from '../../core/models/admin-user.model';
 import { AdminUserService } from '../../core/services/admin-user.service';
@@ -10,14 +9,10 @@ import { I18nService } from '../../core/services/i18n.service';
 @Component({
   selector: 'app-admin-users-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule],
   template: `
     <section class="admin-users-shell">
-      <header class="heading">
-        <h1>{{ i18n.t('admin.users.title') }}</h1>
-        <p>{{ i18n.t('admin.users.description') }}</p>
-        <p class="policy">{{ i18n.t('admin.users.policy') }}</p>
-      </header>
+      <p class="policy">{{ i18n.t('admin.users.policy') }}</p>
 
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <label>
@@ -111,7 +106,6 @@ import { I18nService } from '../../core/services/i18n.service';
         </p>
       </section>
 
-      <a class="back-link" routerLink="/dashboard">{{ i18n.t('admin.users.back') }}</a>
     </section>
   `,
   styles: `
@@ -126,19 +120,14 @@ import { I18nService } from '../../core/services/i18n.service';
       gap: 0.9rem;
     }
 
-    .heading h1 {
-      margin: 0;
-      font-size: clamp(1.45rem, 2vw, 1.9rem);
-    }
-
-    .heading p {
-      margin: 0.3rem 0 0;
-      color: var(--muted);
-    }
-
     .policy {
       color: var(--ink);
       font-size: 0.9rem;
+      margin: 0;
+      border-left: 3px solid var(--accent);
+      padding: 0.55rem 0.7rem;
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+      border-radius: 0 0.55rem 0.55rem 0;
     }
 
     form {
@@ -249,11 +238,6 @@ import { I18nService } from '../../core/services/i18n.service';
       color: var(--muted);
     }
 
-    .back-link {
-      color: var(--ink);
-      width: fit-content;
-      font-weight: 600;
-    }
   `
 })
 export class AdminUsersPageComponent implements OnInit {

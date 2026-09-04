@@ -94,53 +94,40 @@ describe('DashboardPageComponent', () => {
     expect(component.isAdmin).toBeFalse();
   });
 
-  it('shows doctor workflow cards with the dashboard schedule preview', () => {
+  it('shows a focused intake action and patient preview for doctors', () => {
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    const cards = Array.from(
-      fixture.nativeElement.querySelectorAll('.workflow-card'),
-      (element: Element) => element.textContent?.trim()
-    );
-
-    expect(cards.join(' ')).toContain('dashboard.path.intake.title');
-    expect(cards.join(' ')).toContain('dashboard.path.patients.title');
-    expect(cards.join(' ')).toContain('dashboard.path.schedule.title');
-    expect(fixture.nativeElement.querySelector('.schedule-panel')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.dashboard-command')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/patients/new"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.patients-preview-panel')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.workflow-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.schedule-panel')).toBeNull();
   });
 
-  it('shows front desk workflow cards without a duplicate dashboard schedule preview', () => {
+  it('shows front desk operational content without duplicating module navigation', () => {
     authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
 
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
 
-    const cards = Array.from(
-      fixture.nativeElement.querySelectorAll('.workflow-card'),
-      (element: Element) => element.textContent?.trim()
-    );
-
-    expect(cards.join(' ')).toContain('dashboard.path.intake.title');
-    expect(cards.join(' ')).toContain('dashboard.path.patients.title');
-    expect(cards.join(' ')).toContain('dashboard.path.patientLinks.title');
-    expect(cards.join(' ')).not.toContain('dashboard.path.schedule.title');
+    expect(fixture.nativeElement.querySelector('.dashboard-command')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.patients-preview-panel')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.workflow-card')).toBeNull();
     expect(fixture.nativeElement.querySelector('.schedule-panel')).toBeNull();
   });
 
-  it('uses a doctor-specific dashboard title and compact role chip', () => {
+  it('uses a doctor-specific dashboard theme without repeating page identity', () => {
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
 
     const fixture = TestBed.createComponent(DashboardPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
-    const chip = fixture.nativeElement.querySelector('.role-chip') as HTMLElement;
 
-    expect(component.dashboardTitleKey).toBe('dashboard.title.doctor');
-    expect(component.dashboardDescriptionKey).toBe('dashboard.description.doctor');
     expect(component.dashboardRoleClass).toBe('role-doctor');
-    expect(chip.textContent).toContain('roles.doctor');
-    expect(chip.textContent).not.toContain('dashboard.role');
+    expect(fixture.nativeElement.querySelector('h1')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.role-chip')).toBeNull();
   });
 
   it('uses a front-desk-specific dashboard title and theme', () => {
@@ -150,13 +137,10 @@ describe('DashboardPageComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    expect(component.dashboardTitleKey).toBe('dashboard.title.frontDesk');
-    expect(component.dashboardDescriptionKey).toBe('dashboard.description.frontDesk');
     expect(component.dashboardRoleClass).toBe('role-front-desk');
-    expect(component.roleLabelKey).toBe('roles.frontDesk');
   });
 
-  it('shows admin workflow cards and skips appointment loading for admin users', () => {
+  it('shows admin operational panels and skips repeated module shortcuts', () => {
     authServiceSpy.getCurrentRole.and.returnValue('ADMIN');
 
     const fixture = TestBed.createComponent(DashboardPageComponent);
@@ -166,15 +150,10 @@ describe('DashboardPageComponent', () => {
     expect(adminUserServiceSpy.getInternalUsers).toHaveBeenCalledOnceWith('ALL');
     expect(auditServiceSpy.getEvents).toHaveBeenCalledOnceWith({ limit: 5 });
 
-    const cards = Array.from(
-      fixture.nativeElement.querySelectorAll('.workflow-card'),
-      (element: Element) => element.textContent?.trim()
-    );
-    expect(cards.join(' ')).toContain('dashboard.path.team.title');
-    expect(cards.join(' ')).toContain('dashboard.path.assignments.title');
-    expect(cards.join(' ')).toContain('dashboard.path.patientLinks.title');
-    expect(cards.join(' ')).toContain('dashboard.path.audit.title');
-    expect(cards.join(' ')).not.toContain('dashboard.path.intake.title');
+    expect(fixture.nativeElement.querySelector('.workflow-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.dashboard-command')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.admin-attention-panel')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.admin-audit-panel')).not.toBeNull();
   });
 
   it('summarizes assignment gaps for admin users', () => {
@@ -278,7 +257,7 @@ describe('DashboardPageComponent', () => {
     expect(component.recentAuditEvents.length).toBe(1);
     expect(text).toContain('dashboard.adminAttention.title');
     expect(text).toContain('dashboard.adminAudit.title');
-    expect(text).toContain('dashboard.adminSystem.title');
+    expect(text).not.toContain('dashboard.adminSystem.title');
     expect(text).toContain('MT-2026-000010');
     expect(text).toContain('CREATE');
   });

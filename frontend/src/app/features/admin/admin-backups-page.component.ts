@@ -1,31 +1,26 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { BackupFile, BackupStatus } from '../../core/models/admin-backup.model';
 import { AdminBackupService } from '../../core/services/admin-backup.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { PageFeedbackComponent } from '../../shared/page-feedback.component';
 
 @Component({
   selector: 'app-admin-backups-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, LocalizedDatePipe, PageFeedbackComponent],
   template: `
     <section class="backup-shell">
-      <header class="backup-hero">
-        <div>
-          <span class="eyebrow">{{ i18n.t('admin.backups.eyebrow') }}</span>
-          <h1>{{ i18n.t('admin.backups.title') }}</h1>
-          <p>{{ i18n.t('admin.backups.description') }}</p>
-        </div>
-        <a class="back-link" routerLink="/dashboard">{{ i18n.t('admin.backups.back') }}</a>
-      </header>
-
-      <p class="feedback success" *ngIf="successMessage">{{ successMessage }}</p>
-      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
-      <p class="loading" *ngIf="isLoading">{{ i18n.t('admin.backups.loading') }}</p>
+      <app-page-feedback
+        [success]="successMessage"
+        [error]="errorMessage"
+        [loading]="isLoading"
+        [loadingText]="i18n.t('admin.backups.loading')"
+      ></app-page-feedback>
 
       <section class="backup-summary">
         <article>
@@ -111,7 +106,7 @@ import { I18nService } from '../../core/services/i18n.service';
           <article class="backup-item" *ngFor="let backup of backups; trackBy: trackByFileName">
             <div>
               <strong>{{ backup.fileName }}</strong>
-              <span>{{ backup.createdAt | date: 'medium' }} · {{ formatBytes(backup.sizeBytes) }}</span>
+              <span>{{ backup.createdAt | localizedDate: 'medium' }} · {{ formatBytes(backup.sizeBytes) }}</span>
             </div>
             <button type="button" class="secondary" (click)="downloadBackup(backup)" [disabled]="isRestoring">
               {{ i18n.t('admin.backups.history.download') }}
@@ -132,7 +127,6 @@ import { I18nService } from '../../core/services/i18n.service';
       gap: 1rem;
     }
 
-    .backup-hero,
     .panel,
     .backup-summary article {
       border: 1px solid var(--surface-strong);
@@ -141,39 +135,8 @@ import { I18nService } from '../../core/services/i18n.service';
       box-shadow: var(--elevation-soft);
     }
 
-    .backup-hero {
-      padding: clamp(1rem, 2vw, 1.35rem);
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: start;
-      background:
-        radial-gradient(circle at 8% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 18rem),
-        linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, transparent), transparent 58%),
-        var(--surface-elevated);
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      width: fit-content;
-      border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--surface-strong));
-      border-radius: 999px;
-      padding: 0.18rem 0.52rem;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    h1,
     h2 {
       margin: 0;
-    }
-
-    h1 {
-      font-size: clamp(1.45rem, 2vw, 1.9rem);
     }
 
     h2 {
@@ -255,8 +218,7 @@ import { I18nService } from '../../core/services/i18n.service';
       padding: 0.55rem;
     }
 
-    button,
-    .back-link {
+    button {
       border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--surface-strong));
       background: color-mix(in srgb, var(--accent) 16%, var(--surface));
       color: var(--ink);
@@ -269,8 +231,7 @@ import { I18nService } from '../../core/services/i18n.service';
       text-decoration: none;
     }
 
-    button.secondary,
-    .back-link {
+    button.secondary {
       border-color: var(--surface-strong);
       background: var(--surface);
     }
@@ -351,7 +312,6 @@ import { I18nService } from '../../core/services/i18n.service';
     }
 
     @media (max-width: 720px) {
-      .backup-hero,
       .panel-header,
       .backup-item {
         display: grid;

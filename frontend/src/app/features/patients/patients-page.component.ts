@@ -1,36 +1,34 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { I18nService } from '../../core/services/i18n.service';
 import { Patient } from '../../core/models/patient.model';
 import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
+import { StatusLabelPipe } from '../../shared/status-label.pipe';
 
 type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 
 @Component({
   selector: 'app-patients-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, StatusLabelPipe],
   template: `
     <section class="patients-shell">
-      <header class="patients-header">
-        <div>
-          <h1>{{ i18n.t('patients.title') }}</h1>
-          <p>{{ i18n.t('patients.description') }}</p>
-        </div>
+      <div class="page-tools">
         <a class="primary-action" routerLink="/patients/new">{{ i18n.t('patients.actions.createNew') }}</a>
-      </header>
+      </div>
 
       <section class="overview">
         <article class="overview-card">
           <span>{{ i18n.t('patients.overview.total') }}</span>
-          <strong>{{ patients.length }}</strong>
+          <strong>{{ totalPatients }}</strong>
         </article>
         <article class="overview-card">
           <span>{{ i18n.t('patients.overview.filtered') }}</span>
-          <strong>{{ filteredPatients.length }}</strong>
+          <strong>{{ totalMatchingPatients }}</strong>
         </article>
         <article class="overview-card">
           <span>{{ i18n.t('patients.overview.mode') }}</span>
@@ -46,9 +44,10 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
         <div class="toolbar">
           <input
             type="search"
+            [attr.aria-label]="i18n.t('patients.search.label')"
             [placeholder]="i18n.t('patients.search.placeholder')"
             [value]="searchTerm"
-            (input)="searchTerm = $any($event.target).value"
+            (input)="updateSearchTerm($any($event.target).value)"
           />
           <button type="button" class="secondary" (click)="clearFilters()">
             {{ i18n.t('patients.search.clear') }}
@@ -59,6 +58,7 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
           <button
             type="button"
             [class.active]="statusFilter === 'ALL'"
+            [attr.aria-pressed]="statusFilter === 'ALL'"
             (click)="setStatusFilter('ALL')"
           >
             {{ i18n.t('patients.filters.all') }}
@@ -66,6 +66,7 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
           <button
             type="button"
             [class.active]="statusFilter === 'ACTIVE'"
+            [attr.aria-pressed]="statusFilter === 'ACTIVE'"
             (click)="setStatusFilter('ACTIVE')"
           >
             {{ i18n.t('patients.filters.active') }}
@@ -73,6 +74,7 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
           <button
             type="button"
             [class.active]="statusFilter === 'INACTIVE'"
+            [attr.aria-pressed]="statusFilter === 'INACTIVE'"
             (click)="setStatusFilter('INACTIVE')"
           >
             {{ i18n.t('patients.filters.inactive') }}
@@ -80,21 +82,22 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
           <button
             type="button"
             [class.active]="statusFilter === 'ARCHIVED'"
+            [attr.aria-pressed]="statusFilter === 'ARCHIVED'"
             (click)="setStatusFilter('ARCHIVED')"
           >
             {{ i18n.t('patients.filters.archived') }}
           </button>
         </div>
 
-        <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
+        <p class="feedback error" *ngIf="errorMessage" role="alert">{{ errorMessage }}</p>
         <p class="loading" *ngIf="isLoading">{{ i18n.t('patients.loading') }}</p>
 
-        <div class="patients-list" *ngIf="!isLoading && filteredPatients.length > 0">
-          <article class="patient-item" *ngFor="let patient of filteredPatients; trackBy: trackByPatientId">
+        <div class="patients-list" *ngIf="patients.length > 0">
+          <article class="patient-item" *ngFor="let patient of visiblePatients; trackBy: trackByPatientId">
             <div class="patient-item-header">
               <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
               <span class="status-chip" [class]="'status-chip ' + (patient.status || 'ACTIVE').toLowerCase()">
-                {{ patient.status }}
+                {{ patient.status | statusLabel: 'patients' }}
               </span>
             </div>
             <p>{{ patient.email }}</p>
@@ -116,7 +119,16 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
           </article>
         </div>
 
-        <p *ngIf="!isLoading && filteredPatients.length === 0">{{ i18n.t('patients.empty') }}</p>
+        <button
+          *ngIf="!isLastPage"
+          type="button"
+          class="load-more"
+          (click)="showMore()"
+        >
+          {{ i18n.t('patients.search.showMore') }}
+        </button>
+
+        <p *ngIf="!isLoading && patients.length === 0">{{ i18n.t('patients.empty') }}</p>
       </section>
     </section>
   `,
@@ -129,27 +141,14 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       align-items: start;
     }
 
-    .patients-header,
+    .page-tools,
     .overview {
       grid-column: 1 / -1;
     }
 
-    .patients-header {
+    .page-tools {
       display: flex;
-      justify-content: space-between;
-      align-items: end;
-      gap: 1rem;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(1.7rem, 2.25vw, 2.4rem);
-      line-height: 1.1;
-    }
-
-    .patients-header p {
-      margin: 0.4rem 0 0;
-      color: var(--muted);
+      justify-content: flex-end;
     }
 
     .primary-action {
@@ -366,6 +365,13 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       background: transparent;
     }
 
+    .load-more {
+      margin: 0.8rem auto 0;
+      display: block;
+      background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+      border-color: color-mix(in srgb, var(--accent) 40%, var(--surface-strong));
+    }
+
     @media (max-width: 1080px) {
       .patients-header {
         align-items: start;
@@ -378,12 +384,19 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
     }
   `
 })
-export class PatientsPageComponent implements OnInit {
+export class PatientsPageComponent implements OnInit, OnDestroy {
+  private readonly pageSize = 25;
+  private searchTimer: number | null = null;
+  private patientRequest: Subscription | null = null;
   patients: Patient[] = [];
   searchTerm = '';
   statusFilter: PatientStatusFilter = 'ALL';
   isLoading = false;
   errorMessage = '';
+  totalPatients = 0;
+  totalMatchingPatients = 0;
+  currentPage = 0;
+  isLastPage = true;
 
   constructor(
     private readonly authService: AuthService,
@@ -392,26 +405,22 @@ export class PatientsPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadPatients();
+    this.loadPatients(true);
   }
 
   get filteredPatients(): Patient[] {
-    const normalizedSearch = this.searchTerm.trim().toLowerCase();
+    return this.patients;
+  }
 
-    return this.patients.filter((patient) => {
-      const statusMatches = this.statusFilter === 'ALL' || patient.status === this.statusFilter;
-      if (!statusMatches) {
-        return false;
-      }
+  get visiblePatients(): Patient[] {
+    return this.patients;
+  }
 
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      return `${patient.firstName} ${patient.lastName} ${patient.email}`
-        .toLowerCase()
-        .includes(normalizedSearch);
-    });
+  ngOnDestroy(): void {
+    if (this.searchTimer != null) {
+      window.clearTimeout(this.searchTimer);
+    }
+    this.patientRequest?.unsubscribe();
   }
 
   get isDoctorRole(): boolean {
@@ -424,22 +433,50 @@ export class PatientsPageComponent implements OnInit {
 
   setStatusFilter(filter: PatientStatusFilter): void {
     this.statusFilter = filter;
+    this.loadPatients(true);
+  }
+
+  updateSearchTerm(value: string): void {
+    this.searchTerm = value;
+    if (this.searchTimer != null) {
+      window.clearTimeout(this.searchTimer);
+    }
+    this.searchTimer = window.setTimeout(() => this.loadPatients(true), 250);
+  }
+
+  showMore(): void {
+    if (!this.isLastPage && !this.isLoading) {
+      this.loadPatients(false);
+    }
   }
 
   clearFilters(): void {
     this.searchTerm = '';
     this.statusFilter = 'ALL';
+    this.loadPatients(true);
   }
 
-  private loadPatients(): void {
+  private loadPatients(reset: boolean): void {
     this.isLoading = true;
     this.errorMessage = '';
+    const requestedPage = reset ? 0 : this.currentPage + 1;
+    const status = this.statusFilter === 'ALL' ? undefined : this.statusFilter;
 
-    this.patientService.getVisiblePatients().subscribe({
-      next: (patients) => {
-        this.patients = [...patients].sort((left, right) =>
-          `${left.lastName} ${left.firstName}`.localeCompare(`${right.lastName} ${right.firstName}`)
-        );
+    this.patientRequest?.unsubscribe();
+    this.patientRequest = this.patientService.getVisiblePatientPage(
+      requestedPage,
+      this.pageSize,
+      this.searchTerm,
+      status
+    ).subscribe({
+      next: (response) => {
+        this.patients = reset ? response.content : [...this.patients, ...response.content];
+        this.currentPage = response.page;
+        this.isLastPage = response.last;
+        this.totalMatchingPatients = response.totalElements;
+        if (!this.searchTerm.trim() && this.statusFilter === 'ALL') {
+          this.totalPatients = response.totalElements;
+        }
         this.isLoading = false;
       },
       error: () => {

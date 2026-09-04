@@ -40,11 +40,32 @@ describe('AppointmentService', () => {
     ]);
   });
 
+  it('should load a page of upcoming appointments', () => {
+    service.getUpcomingAppointmentPage(1, 25).subscribe((response) => {
+      expect(response.page).toBe(1);
+      expect(response.totalElements).toBe(30);
+    });
+
+    const request = httpMock.expectOne('http://localhost:8080/api/appointments/upcoming/page?page=1&size=25');
+    expect(request.request.method).toBe('GET');
+    request.flush({ content: [], page: 1, size: 25, totalElements: 30, totalPages: 2, last: true });
+  });
+
   it('should pass from filter for upcoming appointments', () => {
     service.getUpcomingAppointments('2030-01-01T00:00:00').subscribe();
 
     const request = httpMock.expectOne(
       'http://localhost:8080/api/appointments/upcoming?from=2030-01-01T00:00:00'
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush([]);
+  });
+
+  it('should pass a bounded date range for calendar appointments', () => {
+    service.getUpcomingAppointments('2030-01-01T00:00:00', '2030-02-01T00:00:00').subscribe();
+
+    const request = httpMock.expectOne(
+      'http://localhost:8080/api/appointments/upcoming?from=2030-01-01T00:00:00&to=2030-02-01T00:00:00'
     );
     expect(request.request.method).toBe('GET');
     request.flush([]);

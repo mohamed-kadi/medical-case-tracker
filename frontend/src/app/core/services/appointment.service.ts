@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { Appointment, AppointmentStatus, CreateAppointmentRequest } from '../models/appointment.model';
+import { Appointment, AppointmentPage, AppointmentStatus, CreateAppointmentRequest } from '../models/appointment.model';
 
 @Injectable({ providedIn: 'root' })
 export class AppointmentService {
@@ -15,12 +15,23 @@ export class AppointmentService {
     return this.http.get<Appointment[]>(`${this.apiBaseUrl}/api/appointments/patients/${patientId}`);
   }
 
-  getUpcomingAppointments(fromDateTime?: string): Observable<Appointment[]> {
+  getUpcomingAppointments(fromDateTime?: string, toDateTime?: string): Observable<Appointment[]> {
     let params = new HttpParams();
     if (fromDateTime) {
       params = params.set('from', fromDateTime);
     }
+    if (toDateTime) {
+      params = params.set('to', toDateTime);
+    }
     return this.http.get<Appointment[]>(`${this.apiBaseUrl}/api/appointments/upcoming`, { params });
+  }
+
+  getUpcomingAppointmentPage(page: number, size: number, fromDateTime?: string): Observable<AppointmentPage> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (fromDateTime) {
+      params = params.set('from', fromDateTime);
+    }
+    return this.http.get<AppointmentPage>(`${this.apiBaseUrl}/api/appointments/upcoming/page`, { params });
   }
 
   createAppointment(patientId: number, request: CreateAppointmentRequest): Observable<Appointment> {

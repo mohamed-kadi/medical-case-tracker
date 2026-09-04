@@ -2,35 +2,32 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { Appointment } from '../../core/models/appointment.model';
 import { Patient } from '../../core/models/patient.model';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { ConfirmationService } from '../../shared/confirmation.service';
+import { StatusLabelPipe } from '../../shared/status-label.pipe';
+import { PageFeedbackComponent } from '../../shared/page-feedback.component';
 
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LocalizedDatePipe, StatusLabelPipe, PageFeedbackComponent],
   template: `
     <section class="appointments-shell">
-      <header class="appointments-header">
-        <div>
-          <h1>{{ i18n.t('appointments.title') }}</h1>
-          <p>{{ i18n.t('appointments.description') }}</p>
-        </div>
-        <div class="header-actions">
-          <a class="secondary-action" routerLink="/patients">{{ i18n.t('appointments.actions.openPatients') }}</a>
-          <a class="primary-action" routerLink="/patients/new">{{ i18n.t('appointments.actions.newPatient') }}</a>
-        </div>
-      </header>
+      <div class="page-tools">
+        <a class="primary-action" routerLink="/patients/new">{{ i18n.t('appointments.actions.newPatient') }}</a>
+      </div>
 
       <section class="overview">
         <article class="overview-card">
           <span>{{ i18n.t('appointments.overview.upcoming') }}</span>
-          <strong>{{ appointments.length }}</strong>
+          <strong>{{ totalAppointments }}</strong>
         </article>
         <article class="overview-card">
           <span>{{ i18n.t('appointments.overview.patients') }}</span>
@@ -58,7 +55,7 @@ import { PatientService } from '../../core/services/patient.service';
 
             <label class="field date-field">
               {{ i18n.t('appointments.create.when') }}
-              <input type="datetime-local" formControlName="scheduledAt" />
+              <input type="datetime-local" formControlName="scheduledAt" [min]="minimumAppointmentDateTime" />
             </label>
 
             <label class="field reason-field">
@@ -84,9 +81,12 @@ import { PatientService } from '../../core/services/patient.service';
         </form>
       </section>
 
-      <p class="feedback success" *ngIf="successMessage">{{ successMessage }}</p>
-      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
-      <p class="loading" *ngIf="isLoadingPatients || isLoadingAppointments">{{ i18n.t('appointments.loading') }}</p>
+      <app-page-feedback
+        [success]="successMessage"
+        [error]="errorMessage"
+        [loading]="isLoadingPatients || isLoadingAppointments"
+        [loadingText]="i18n.t('appointments.loading')"
+      ></app-page-feedback>
 
       <section class="panel">
         <h2>{{ i18n.t('appointments.list.title') }}</h2>
@@ -95,6 +95,7 @@ import { PatientService } from '../../core/services/patient.service';
           <table>
             <thead>
               <tr>
+                <th>{{ i18n.t('appointments.headers.patient') }}</th>
                 <th>{{ i18n.t('appointments.headers.when') }}</th>
                 <th>{{ i18n.t('appointments.headers.reason') }}</th>
                 <th>{{ i18n.t('appointments.headers.status') }}</th>
@@ -104,11 +105,24 @@ import { PatientService } from '../../core/services/patient.service';
             </thead>
             <tbody>
               <tr *ngFor="let appointment of appointments; trackBy: trackByAppointmentId">
-                <td>{{ appointment.scheduledAt | date: 'medium' }}</td>
-                <td>{{ appointment.reason }}</td>
-                <td>{{ appointment.status }}</td>
-                <td>{{ appointment.notes || '-' }}</td>
-                <td>
+                <td [attr.data-label]="i18n.t('appointments.headers.patient')">
+                  <a
+                    class="patient-link"
+                    *ngIf="appointment.patientId; else unavailablePatient"
+                    [routerLink]="['/patients', appointment.patientId]"
+                  >
+                    <strong>{{ appointment.patientName || i18n.t('appointments.patient.unavailable') }}</strong>
+                    <small>{{ appointment.patientNumber || '-' }}</small>
+                  </a>
+                  <ng-template #unavailablePatient>
+                    <span>{{ appointment.patientName || i18n.t('appointments.patient.unavailable') }}</span>
+                  </ng-template>
+                </td>
+                <td [attr.data-label]="i18n.t('appointments.headers.when')">{{ appointment.scheduledAt | localizedDate: 'medium' }}</td>
+                <td [attr.data-label]="i18n.t('appointments.headers.reason')">{{ appointment.reason }}</td>
+                <td [attr.data-label]="i18n.t('appointments.headers.status')">{{ appointment.status | statusLabel: 'appointments' }}</td>
+                <td [attr.data-label]="i18n.t('appointments.headers.notes')">{{ appointment.notes || '-' }}</td>
+                <td [attr.data-label]="i18n.t('appointments.headers.actions')">
                   <button
                     *ngIf="appointment.status === 'SCHEDULED'"
                     type="button"
@@ -131,6 +145,16 @@ import { PatientService } from '../../core/services/patient.service';
           </table>
         </div>
 
+        <button
+          type="button"
+          class="load-more"
+          *ngIf="!isLastPage"
+          (click)="showMoreAppointments()"
+          [disabled]="isLoadingAppointments"
+        >
+          {{ i18n.t('appointments.list.showMore') }}
+        </button>
+
         <p *ngIf="!isLoadingAppointments && appointments.length === 0">{{ i18n.t('appointments.empty') }}</p>
       </section>
     </section>
@@ -142,33 +166,12 @@ import { PatientService } from '../../core/services/patient.service';
       gap: 1rem;
     }
 
-    .appointments-header {
+    .page-tools {
       display: flex;
-      justify-content: space-between;
-      align-items: end;
-      gap: 1rem;
-      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
-    h1 {
-      margin: 0;
-      font-size: clamp(1.7rem, 2.2vw, 2.4rem);
-      line-height: 1.12;
-    }
-
-    .appointments-header p {
-      margin: 0.38rem 0 0;
-      color: var(--muted);
-    }
-
-    .header-actions {
-      display: inline-flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .primary-action,
-    .secondary-action {
+    .primary-action {
       text-decoration: none;
       border-radius: 0.58rem;
       padding: 0.52rem 0.74rem;
@@ -181,12 +184,6 @@ import { PatientService } from '../../core/services/patient.service';
       color: var(--ink);
       border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--surface-strong));
       background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-    }
-
-    .secondary-action {
-      color: var(--ink);
-      border: 1px solid var(--surface-strong);
-      background: var(--surface);
     }
 
     .overview {
@@ -226,6 +223,23 @@ import { PatientService } from '../../core/services/patient.service';
       display: grid;
       gap: 0.75rem;
       min-width: 0;
+    }
+
+    .patient-link {
+      display: grid;
+      gap: 0.05rem;
+      color: var(--ink);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .patient-link:hover strong {
+      text-decoration: underline;
+    }
+
+    .patient-link small {
+      color: var(--muted);
+      font-size: 0.75rem;
     }
 
     h2 {
@@ -303,6 +317,13 @@ import { PatientService } from '../../core/services/patient.service';
       font-size: 0.78rem;
     }
 
+    .load-more {
+      width: fit-content;
+      margin: 0.2rem auto 0;
+      background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+      border-color: color-mix(in srgb, var(--accent) 40%, var(--surface-strong));
+    }
+
     .feedback {
       margin: 0;
       font-weight: 600;
@@ -365,9 +386,64 @@ import { PatientService } from '../../core/services/patient.service';
         grid-column: auto;
       }
     }
+
+    @media (max-width: 700px) {
+      .table-scroll {
+        overflow: visible;
+      }
+
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      tbody,
+      tr,
+      td {
+        display: block;
+      }
+
+      tbody {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      tr {
+        border: 1px solid var(--surface-strong);
+        border-radius: 0.7rem;
+        padding: 0.35rem 0.65rem;
+        background: var(--surface);
+      }
+
+      td {
+        display: grid;
+        grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+        gap: 0.7rem;
+        align-items: start;
+        padding: 0.48rem 0;
+      }
+
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+    }
   `
 })
 export class AppointmentsPageComponent implements OnInit {
+  private readonly pageSize = 25;
+  readonly minimumAppointmentDateTime = this.toDateTimeLocalValue(new Date());
   patients: Patient[] = [];
   appointments: Appointment[] = [];
 
@@ -378,6 +454,10 @@ export class AppointmentsPageComponent implements OnInit {
 
   successMessage = '';
   errorMessage = '';
+  private readonly requestedPatientId: number | null;
+  totalAppointments = 0;
+  currentPage = 0;
+  isLastPage = true;
 
   readonly form;
 
@@ -385,8 +465,12 @@ export class AppointmentsPageComponent implements OnInit {
     private readonly appointmentService: AppointmentService,
     private readonly patientService: PatientService,
     private readonly formBuilder: FormBuilder,
+    private readonly confirmation: ConfirmationService,
+    route: ActivatedRoute,
     public readonly i18n: I18nService
   ) {
+    const patientId = Number(route.snapshot.queryParamMap.get('patientId'));
+    this.requestedPatientId = Number.isFinite(patientId) && patientId > 0 ? patientId : null;
     this.form = this.formBuilder.group({
       patientId: this.formBuilder.control<number | null>(null, Validators.required),
       scheduledAt: this.formBuilder.nonNullable.control('', Validators.required),
@@ -397,7 +481,7 @@ export class AppointmentsPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadPatients();
-    this.loadAppointments();
+    this.loadAppointments(true);
   }
 
   createAppointment(): void {
@@ -413,6 +497,10 @@ export class AppointmentsPageComponent implements OnInit {
     const normalizedReason = payload.reason.trim();
     if (normalizedReason.length === 0) {
       this.errorMessage = this.i18n.t('common.required');
+      return;
+    }
+    if (new Date(payload.scheduledAt).getTime() <= Date.now()) {
+      this.errorMessage = this.i18n.t('appointments.create.pastError');
       return;
     }
 
@@ -431,6 +519,7 @@ export class AppointmentsPageComponent implements OnInit {
           this.appointments = [...this.appointments, appointment].sort(
             (left, right) => new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime()
           );
+          this.totalAppointments += 1;
           this.form.patchValue({
             scheduledAt: '',
             reason: '',
@@ -455,7 +544,7 @@ export class AppointmentsPageComponent implements OnInit {
       return;
     }
 
-    const confirmed = window.confirm(this.i18n.t('appointments.cancel.confirm'));
+    const confirmed = this.confirmation.confirm('appointments.cancel.confirm');
     if (!confirmed) {
       return;
     }
@@ -467,6 +556,7 @@ export class AppointmentsPageComponent implements OnInit {
     this.appointmentService.updateAppointmentStatus(appointmentId, 'CANCELLED').subscribe({
       next: (updatedAppointment) => {
         this.appointments = this.appointments.filter((appointment) => appointment.id !== updatedAppointment.id);
+        this.totalAppointments = Math.max(0, this.totalAppointments - 1);
         this.deletingAppointmentIds.delete(appointmentId);
         this.successMessage = this.i18n.t('appointments.cancel.success');
       },
@@ -481,6 +571,12 @@ export class AppointmentsPageComponent implements OnInit {
     return appointment.id;
   }
 
+  showMoreAppointments(): void {
+    if (!this.isLastPage && !this.isLoadingAppointments) {
+      this.loadAppointments(false);
+    }
+  }
+
   private loadPatients(): void {
     this.isLoadingPatients = true;
     this.errorMessage = '';
@@ -492,7 +588,11 @@ export class AppointmentsPageComponent implements OnInit {
         const selectedPatientId = this.form.controls.patientId.value;
         const selectedExists = selectedPatientId != null && patients.some((patient) => patient.id === selectedPatientId);
 
-        if (!selectedExists && patients.length > 0) {
+        const requestedPatientExists =
+          this.requestedPatientId != null && patients.some((patient) => patient.id === this.requestedPatientId);
+        if (requestedPatientExists) {
+          this.form.controls.patientId.setValue(this.requestedPatientId);
+        } else if (!selectedExists && patients.length > 0) {
           this.form.controls.patientId.setValue(patients[0].id);
         }
         if (patients.length === 0) {
@@ -508,13 +608,17 @@ export class AppointmentsPageComponent implements OnInit {
     });
   }
 
-  private loadAppointments(): void {
+  private loadAppointments(reset: boolean): void {
     this.isLoadingAppointments = true;
     this.errorMessage = '';
+    const requestedPage = reset ? 0 : this.currentPage + 1;
 
-    this.appointmentService.getUpcomingAppointments().subscribe({
-      next: (appointments) => {
-        this.appointments = appointments;
+    this.appointmentService.getUpcomingAppointmentPage(requestedPage, this.pageSize).subscribe({
+      next: (response) => {
+        this.appointments = reset ? response.content : [...this.appointments, ...response.content];
+        this.totalAppointments = response.totalElements;
+        this.currentPage = response.page;
+        this.isLastPage = response.last;
         this.isLoadingAppointments = false;
       },
       error: (error: unknown) => {
@@ -534,11 +638,23 @@ export class AppointmentsPageComponent implements OnInit {
     return normalized.length === 16 ? `${normalized}:00` : normalized;
   }
 
+  private toDateTimeLocalValue(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
   private resolveErrorMessage(error: unknown, fallbackKey: string): string {
     if (error instanceof HttpErrorResponse) {
       const payload = error.error;
       if (payload && typeof payload === 'object') {
         const objectPayload = payload as Record<string, unknown>;
+        if (objectPayload['code'] === 'APPOINTMENT_TIME_CONFLICT') {
+          return this.i18n.t('appointments.create.conflictError');
+        }
         if (typeof objectPayload['error'] === 'string' && objectPayload['error'].trim().length > 0) {
           return objectPayload['error'];
         }

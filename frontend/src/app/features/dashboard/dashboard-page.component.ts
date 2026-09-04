@@ -14,24 +14,23 @@ import { AdminUserResponse } from '../../core/models/admin-user.model';
 import { AdminUserService } from '../../core/services/admin-user.service';
 import { AuditEvent } from '../../core/models/audit-event.model';
 import { AuditService } from '../../core/services/audit.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { StatusLabelPipe } from '../../shared/status-label.pipe';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LocalizedDatePipe, StatusLabelPipe],
   template: `
     <section class="dashboard-shell" [ngClass]="dashboardRoleClass">
-      <header class="dashboard-hero">
+      <section class="dashboard-command" *ngIf="isClinicalUser">
         <div>
-          <p class="welcome">{{ i18n.t('dashboard.welcome') }}, {{ username || 'User' }}</p>
-          <h1>{{ i18n.t(dashboardTitleKey) }}</h1>
-          <p>{{ i18n.t(dashboardDescriptionKey) }}</p>
+          <span class="command-eyebrow">{{ i18n.t('dashboard.next.eyebrow') }}</span>
+          <strong>{{ i18n.t('dashboard.next.title') }}</strong>
+          <small>{{ i18n.t('dashboard.next.description') }}</small>
         </div>
-        <span class="role-chip">
-          <span class="role-orb" aria-hidden="true">{{ roleInitial }}</span>
-          {{ i18n.t(roleLabelKey) }}
-        </span>
-      </header>
+        <a class="primary-action" routerLink="/patients/new">{{ i18n.t('dashboard.quick.newPatient') }}</a>
+      </section>
 
       <section class="metric-grid" *ngIf="!isAdmin">
         <article class="metric-card">
@@ -74,85 +73,30 @@ import { AuditService } from '../../core/services/audit.service';
         {{ i18n.t('dashboard.loading') }}
       </p>
 
-      <section class="workflow-grid" *ngIf="isDoctor">
-        <a class="workflow-card primary" routerLink="/patients/new">
-          <span>{{ i18n.t('dashboard.path.intake.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.intake.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.intake.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/patients">
-          <span>{{ i18n.t('dashboard.path.patients.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.patients.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.patients.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/appointments">
-          <span>{{ i18n.t('dashboard.path.schedule.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.schedule.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.schedule.description') }}</small>
-        </a>
-      </section>
-
-      <section class="workflow-grid" *ngIf="isFrontDesk">
-        <a class="workflow-card primary" routerLink="/patients/new">
-          <span>{{ i18n.t('dashboard.path.intake.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.intake.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.intake.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/patients">
-          <span>{{ i18n.t('dashboard.path.patients.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.patients.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.patients.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/patient-links">
-          <span>{{ i18n.t('dashboard.path.patientLinks.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.patientLinks.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.patientLinks.description') }}</small>
-        </a>
-      </section>
-
-      <section class="workflow-grid" *ngIf="isAdmin">
-        <a class="workflow-card primary" routerLink="/admin/users">
-          <span>{{ i18n.t('dashboard.path.team.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.team.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.team.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/admin/assignments">
-          <span>{{ i18n.t('dashboard.path.assignments.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.assignments.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.assignments.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/patient-links">
-          <span>{{ i18n.t('dashboard.path.patientLinks.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.patientLinks.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.patientLinks.description') }}</small>
-        </a>
-        <a class="workflow-card" routerLink="/admin/audit">
-          <span>{{ i18n.t('dashboard.path.audit.kicker') }}</span>
-          <strong>{{ i18n.t('dashboard.path.audit.title') }}</strong>
-          <small>{{ i18n.t('dashboard.path.audit.description') }}</small>
-        </a>
-      </section>
-
       <section class="dashboard-grid">
-        <article class="panel schedule-panel" *ngIf="isDoctor">
+        <article class="panel patients-preview-panel" *ngIf="isClinicalUser">
           <header class="panel-header">
             <div>
-              <h2>{{ i18n.t('dashboard.schedule.title') }}</h2>
-              <p>{{ i18n.t('dashboard.schedule.description') }}</p>
+              <h2>{{ i18n.t('dashboard.patients.title') }}</h2>
+              <p>{{ i18n.t('dashboard.patients.description') }}</p>
             </div>
-            <a routerLink="/appointments">{{ i18n.t('dashboard.quick.appointments') }}</a>
+            <a routerLink="/patients">{{ i18n.t('dashboard.quick.patients') }}</a>
           </header>
 
-          <div class="compact-list" *ngIf="appointmentsPreview.length > 0; else noAppointments">
-            <article class="compact-item" *ngFor="let appointment of appointmentsPreview; trackBy: trackByAppointmentId">
-              <strong>{{ appointment.scheduledAt | date: 'EEE, MMM d · HH:mm' }}</strong>
-              <span>{{ appointment.reason }}</span>
-              <small>{{ appointment.status }}</small>
-            </article>
+          <div class="compact-list" *ngIf="patientsPreview.length > 0; else noPatients">
+            <a
+              class="compact-item patient-preview"
+              *ngFor="let patient of patientsPreview; trackBy: trackByPatientId"
+              [routerLink]="['/patients', patient.id]"
+            >
+              <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
+              <span>{{ patient.patientNumber || patient.email }}</span>
+              <small>{{ patient.status | statusLabel: 'patients' }}</small>
+            </a>
           </div>
 
-          <ng-template #noAppointments>
-            <p class="empty">{{ i18n.t('dashboard.appointments.empty') }}</p>
+          <ng-template #noPatients>
+            <p class="empty">{{ i18n.t('dashboard.patients.empty') }}</p>
           </ng-template>
         </article>
 
@@ -204,7 +148,7 @@ import { AuditService } from '../../core/services/audit.service';
             <article class="compact-item" *ngFor="let event of recentAuditEvents; trackBy: trackByAuditEventId">
               <strong>{{ event.action }}</strong>
               <span>{{ event.actorUsername }} · {{ event.entityType }} #{{ event.entityId }}</span>
-              <small>{{ event.createdAt | date: 'medium' }}</small>
+              <small>{{ event.createdAt | localizedDate: 'medium' }}</small>
             </article>
           </div>
 
@@ -213,29 +157,6 @@ import { AuditService } from '../../core/services/audit.service';
           </ng-template>
         </article>
 
-        <article class="panel admin-system-panel" *ngIf="isAdmin">
-          <header class="panel-header">
-            <div>
-              <h2>{{ i18n.t('dashboard.adminSystem.title') }}</h2>
-              <p>{{ i18n.t('dashboard.adminSystem.description') }}</p>
-            </div>
-          </header>
-
-          <div class="system-list">
-            <article class="compact-item">
-              <strong>{{ i18n.t('dashboard.adminSystem.database.title') }}</strong>
-              <span>{{ i18n.t('dashboard.adminSystem.database.description') }}</span>
-            </article>
-            <a class="compact-item system-link" routerLink="/admin/backups">
-              <strong>{{ i18n.t('dashboard.adminSystem.backup.title') }}</strong>
-              <span>{{ i18n.t('dashboard.adminSystem.backup.description') }}</span>
-            </a>
-            <article class="compact-item">
-              <strong>{{ i18n.t('dashboard.adminSystem.permissions.title') }}</strong>
-              <span>{{ i18n.t('dashboard.adminSystem.permissions.description') }}</span>
-            </article>
-          </div>
-        </article>
       </section>
     </section>
   `,
@@ -263,7 +184,7 @@ import { AuditService } from '../../core/services/audit.service';
       --dash-accent-2: #ff9f6e;
     }
 
-    .dashboard-hero {
+    .dashboard-command {
       border: 1px solid var(--surface-strong);
       border-radius: 1rem;
       background:
@@ -279,66 +200,42 @@ import { AuditService } from '../../core/services/audit.service';
       gap: 1rem;
     }
 
-    h1 {
-      margin: 0;
-      font-size: clamp(1.55rem, 2.4vw, 2.55rem);
-      line-height: 1.06;
-      max-width: 58rem;
+    .dashboard-command > div {
+      display: grid;
+      gap: 0.15rem;
     }
 
-    .dashboard-hero p,
-    .panel p,
-    .empty,
-    .loading {
+    .dashboard-command strong {
+      font-size: 1.05rem;
+    }
+
+    .dashboard-command small,
+    .panel p, .empty, .loading {
       color: var(--muted);
-      margin: 0.35rem 0 0;
       line-height: 1.42;
     }
 
-    .welcome {
-      color: var(--ink);
-      font-weight: 800;
-      margin: 0 0 0.25rem;
+    .panel p,
+    .empty,
+    .loading {
+      margin: 0.35rem 0 0;
     }
 
-    .role-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.48rem;
-      border: 1px solid color-mix(in srgb, var(--dash-accent) 46%, var(--surface-strong));
-      background:
-        linear-gradient(145deg, color-mix(in srgb, var(--dash-accent) 18%, var(--surface)), color-mix(in srgb, var(--dash-accent-2) 10%, var(--surface)));
-      color: var(--ink);
-      border-radius: 999px;
-      padding: 0.28rem 0.7rem 0.28rem 0.32rem;
-      font-size: 0.86rem;
-      font-weight: 800;
-      white-space: nowrap;
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--dash-accent) 10%, transparent);
+    .command-eyebrow {
+      color: var(--dash-accent);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .role-orb {
-      width: 1.85rem;
-      height: 1.85rem;
-      border-radius: 999px;
-      display: grid;
-      place-items: center;
-      background: color-mix(in srgb, var(--dash-accent) 30%, var(--surface));
-      border: 1px solid color-mix(in srgb, var(--dash-accent) 62%, var(--surface-strong));
-      font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
-      font-size: 0.78rem;
-    }
-
-    .metric-grid,
-    .workflow-grid {
+    .metric-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
       gap: 0.75rem;
     }
 
-    .metric-card,
-    .workflow-card,
-    .panel {
+    .metric-card, .panel {
       border: 1px solid var(--surface-strong);
       background: var(--surface-elevated);
       border-radius: 0.95rem;
@@ -358,8 +255,7 @@ import { AuditService } from '../../core/services/audit.service';
         var(--surface-elevated);
     }
 
-    .metric-card span,
-    .workflow-card span {
+    .metric-card span {
       color: var(--muted);
       font-size: 0.74rem;
       text-transform: uppercase;
@@ -372,38 +268,15 @@ import { AuditService } from '../../core/services/audit.service';
       line-height: 1.05;
     }
 
-    .workflow-card {
-      min-height: 8.5rem;
-      color: var(--ink);
+    .primary-action {
+      color: #071510;
       text-decoration: none;
-      padding: 1rem;
-      display: grid;
-      align-content: space-between;
-      gap: 0.55rem;
-      transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
-    }
-
-    .workflow-card:hover {
-      transform: translateY(-2px);
-      border-color: color-mix(in srgb, var(--accent) 50%, var(--surface-strong));
-      background: color-mix(in srgb, var(--accent) 10%, var(--surface-elevated));
-    }
-
-    .workflow-card.primary {
-      background:
-        linear-gradient(145deg, color-mix(in srgb, var(--dash-accent) 22%, var(--surface-elevated)), color-mix(in srgb, var(--dash-accent-2) 8%, var(--surface)));
-      border-color: color-mix(in srgb, var(--dash-accent) 50%, var(--surface-strong));
-    }
-
-    .workflow-card strong {
-      font-size: 1.08rem;
-      line-height: 1.18;
-    }
-
-    .workflow-card small {
-      color: var(--muted);
-      line-height: 1.35;
-      font-size: 0.84rem;
+      border: 1px solid color-mix(in srgb, var(--dash-accent) 70%, white);
+      border-radius: 0.68rem;
+      background: var(--dash-accent);
+      padding: 0.62rem 0.85rem;
+      font-weight: 900;
+      white-space: nowrap;
     }
 
     .dashboard-grid {
@@ -460,13 +333,13 @@ import { AuditService } from '../../core/services/audit.service';
       padding: 0.7rem;
     }
 
-    .system-link {
+    .patient-preview {
       color: inherit;
       text-decoration: none;
       transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
     }
 
-    .system-link:hover {
+    .patient-preview:hover {
       border-color: color-mix(in srgb, var(--accent) 48%, var(--surface-strong));
       background: color-mix(in srgb, var(--accent) 10%, var(--surface));
       transform: translateY(-1px);
@@ -487,11 +360,6 @@ import { AuditService } from '../../core/services/audit.service';
       font-size: 0.78rem;
     }
 
-    .system-list {
-      display: grid;
-      gap: 0.55rem;
-    }
-
     .feedback {
       margin: 0;
       font-weight: 800;
@@ -506,7 +374,7 @@ import { AuditService } from '../../core/services/audit.service';
     }
 
     @media (max-width: 900px) {
-      .dashboard-hero,
+      .dashboard-command,
       .panel-header {
         display: grid;
       }
@@ -545,10 +413,6 @@ export class DashboardPageComponent implements OnInit {
     }
   }
 
-  get username(): string {
-    return this.authService.getCurrentUsername();
-  }
-
   get currentRole(): string {
     return this.authService.getCurrentRole();
   }
@@ -580,58 +444,6 @@ export class DashboardPageComponent implements OnInit {
       return 'role-front-desk';
     }
     return '';
-  }
-
-  get roleLabelKey(): string {
-    if (this.isAdmin) {
-      return 'roles.admin';
-    }
-    if (this.currentRole === 'DOCTOR') {
-      return 'roles.doctor';
-    }
-    if (this.currentRole === 'FRONT_DESK') {
-      return 'roles.frontDesk';
-    }
-    return 'roles.unknown';
-  }
-
-  get roleInitial(): string {
-    if (this.isAdmin) {
-      return 'A';
-    }
-    if (this.currentRole === 'DOCTOR') {
-      return 'D';
-    }
-    if (this.currentRole === 'FRONT_DESK') {
-      return 'F';
-    }
-    return '?';
-  }
-
-  get dashboardTitleKey(): string {
-    if (this.isAdmin) {
-      return 'dashboard.title.admin';
-    }
-    if (this.currentRole === 'DOCTOR') {
-      return 'dashboard.title.doctor';
-    }
-    if (this.currentRole === 'FRONT_DESK') {
-      return 'dashboard.title.frontDesk';
-    }
-    return 'dashboard.title';
-  }
-
-  get dashboardDescriptionKey(): string {
-    if (this.isAdmin) {
-      return 'dashboard.description.admin';
-    }
-    if (this.currentRole === 'DOCTOR') {
-      return 'dashboard.description.doctor';
-    }
-    if (this.currentRole === 'FRONT_DESK') {
-      return 'dashboard.description.frontDesk';
-    }
-    return 'dashboard.description';
   }
 
   get unassignedDoctorCount(): number {
@@ -668,12 +480,8 @@ export class DashboardPageComponent implements OnInit {
     return this.auditEvents.slice(0, 5);
   }
 
-  get appointmentsPreview(): Appointment[] {
-    return this.appointments.slice(0, 5);
-  }
-
-  trackByAppointmentId(_index: number, appointment: Appointment): number {
-    return appointment.id;
+  get patientsPreview(): Patient[] {
+    return this.patients.slice(0, 6);
   }
 
   trackByPatientId(_index: number, patient: Patient): number {

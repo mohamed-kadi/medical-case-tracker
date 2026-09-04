@@ -42,6 +42,19 @@ describe('PatientService', () => {
     ]);
   });
 
+  it('should load a filtered patient page', () => {
+    service.getVisiblePatientPage(1, 25, 'MT-2030', 'ACTIVE').subscribe((response) => {
+      expect(response.page).toBe(1);
+      expect(response.totalElements).toBe(30);
+    });
+
+    const request = httpMock.expectOne(
+      'http://localhost:8080/api/patients/page?page=1&size=25&query=MT-2030&status=ACTIVE'
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({ content: [], page: 1, size: 25, totalElements: 30, totalPages: 2, last: true });
+  });
+
   it('should call admin assignment endpoint', () => {
     service
       .assignPatient(10, { doctorUsername: 'doctorOne', frontDeskUsername: 'staffOne' })

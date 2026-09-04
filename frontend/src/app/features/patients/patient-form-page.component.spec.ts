@@ -139,6 +139,20 @@ describe('PatientFormPageComponent', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/patients');
   });
 
+  it('requires confirmation before making a patient inactive', () => {
+    activatedRouteMock.snapshot.paramMap = convertToParamMap({ id: '20' });
+    spyOn(window, 'confirm').and.returnValue(false);
+    const fixture = TestBed.createComponent(PatientFormPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.form.patchValue({ status: 'INACTIVE' });
+    component.submit();
+
+    expect(window.confirm).toHaveBeenCalledWith('patients.form.statusChangeConfirm');
+    expect(patientServiceSpy.updatePatient).not.toHaveBeenCalled();
+  });
+
   it('omits medical history when front desk submits patient details', () => {
     authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
     activatedRouteMock.snapshot.paramMap = convertToParamMap({});

@@ -1,10 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
+import { ConfirmationService } from '../../shared/confirmation.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PatientUpsertRequest } from '../../core/models/patient.model';
 
@@ -13,24 +14,9 @@ type FormMode = 'create' | 'edit';
 @Component({
   selector: 'app-patient-form-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule],
   template: `
     <section class="form-shell">
-      <header class="form-header">
-        <div>
-          <p class="kicker">{{ i18n.t('patients.form.workspace') }}</p>
-          <h1>
-            {{
-              mode === 'create'
-                ? i18n.t('patients.form.title.create')
-                : i18n.t('patients.form.title.edit')
-            }}
-          </h1>
-          <p>{{ i18n.t('patients.form.helper') }}</p>
-        </div>
-        <a class="back-link" routerLink="/patients">{{ i18n.t('patients.form.back') }}</a>
-      </header>
-
       <section class="form-panel">
         <p class="feedback success" *ngIf="successMessage">{{ successMessage }}</p>
         <p class="feedback error" *ngIf="formErrorMessage">{{ formErrorMessage }}</p>
@@ -116,43 +102,6 @@ type FormMode = 'create' | 'edit';
       width: min(62rem, 100%);
       display: grid;
       gap: 1rem;
-    }
-
-    .form-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: end;
-      gap: 1rem;
-    }
-
-    .kicker {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.76rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      margin: 0.3rem 0 0;
-      font-size: clamp(1.7rem, 2.3vw, 2.4rem);
-      line-height: 1.1;
-    }
-
-    .form-header p {
-      margin: 0.4rem 0 0;
-      color: var(--muted);
-    }
-
-    .back-link {
-      border: 1px solid var(--surface-strong);
-      border-radius: 0.55rem;
-      text-decoration: none;
-      color: var(--ink);
-      padding: 0.45rem 0.65rem;
-      font-size: 0.85rem;
-      background: var(--surface);
-      white-space: nowrap;
     }
 
     .form-panel {
@@ -295,6 +244,7 @@ export class PatientFormPageComponent implements OnInit {
   isSubmitting = false;
   formErrorMessage = '';
   successMessage = '';
+  private originalStatus = 'ACTIVE';
 
   readonly form;
 
@@ -304,6 +254,7 @@ export class PatientFormPageComponent implements OnInit {
     private readonly router: Router,
     private readonly authService: AuthService,
     private readonly patientService: PatientService,
+    private readonly confirmation: ConfirmationService,
     public readonly i18n: I18nService
   ) {
     this.form = this.formBuilder.nonNullable.group({
@@ -379,6 +330,13 @@ export class PatientFormPageComponent implements OnInit {
       return;
     }
 
+    if (payload.status !== this.originalStatus
+        && payload.status !== 'ACTIVE'
+        && !this.confirmation.confirm('patients.form.statusChangeConfirm')) {
+      this.isSubmitting = false;
+      return;
+    }
+
     this.patientService.updatePatient(this.editingPatientId, payload).subscribe({
       next: () => {
         this.isSubmitting = false;
@@ -397,6 +355,7 @@ export class PatientFormPageComponent implements OnInit {
 
     this.patientService.getPatientById(patientId).subscribe({
       next: (patient) => {
+        this.originalStatus = patient.status ?? 'ACTIVE';
         this.form.patchValue({
           firstName: patient.firstName ?? '',
           lastName: patient.lastName ?? '',

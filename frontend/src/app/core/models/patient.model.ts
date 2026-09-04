@@ -29,3 +29,12 @@ export interface PatientAssignmentRequest {
   doctorUsername?: string | null;
   frontDeskUsername?: string | null;
 }
+
+export interface PatientPage {
+  content: Patient[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}

@@ -1,6 +1,12 @@
 <div class="app-shell" [class.workspace-shell]="isWorkspaceLayout()" [ngClass]="workspaceThemeClass()">
   <ng-container *ngIf="isWorkspaceLayout(); else fallbackLayout">
-    <aside class="app-sidebar">
+    <aside
+      id="workspace-navigation"
+      class="app-sidebar"
+      [class.mobile-open]="mobileNavigationOpen"
+      [attr.role]="mobileNavigationOpen ? 'dialog' : null"
+      [attr.aria-modal]="mobileNavigationOpen ? 'true' : null"
+    >
       <a class="brand sidebar-brand" routerLink="/dashboard">
         <span class="brand-mark">M</span>
         <span>
@@ -8,6 +14,13 @@
           <small>{{ i18n.t('app.subtitle') }}</small>
         </span>
       </a>
+      <button
+        #mobileCloseButton
+        type="button"
+        class="mobile-menu-close"
+        (click)="closeMobileNavigation()"
+        [attr.aria-label]="i18n.t('shell.navigation.close')"
+      >×</button>
 
       <nav class="sidebar-nav" [attr.aria-label]="i18n.t('shell.navigation')">
         <span class="nav-section">{{ i18n.t('shell.navigation') }}</span>
@@ -17,8 +30,9 @@
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
           [class.active-prefix]="item.prefixMatch && isRoutePrefix(item.route)"
+          (click)="closeMobileNavigation(false)"
         >
-          <span class="nav-icon">{{ item.icon }}</span>
+          <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
           <span>{{ i18n.t(item.labelKey) }}</span>
         </a>
       </nav>
@@ -26,26 +40,67 @@
       <section class="agenda-panel" *ngIf="showClinicalAgenda()">
         <div class="agenda-header">
           <h3>{{ i18n.t('shell.agenda.title') }}</h3>
-          <label>
-            <span class="sr-only">{{ i18n.t('shell.agenda.range.label') }}</span>
-            <select [value]="agendaRange" (change)="onAgendaRangeChange($any($event.target).value)">
-              <option value="TODAY">{{ i18n.t('shell.agenda.range.today') }}</option>
-              <option value="WEEK">{{ i18n.t('shell.agenda.range.week') }}</option>
-            </select>
-          </label>
+          <div class="calendar-navigation">
+            <button
+              type="button"
+              (click)="changeAgendaMonth(-1)"
+              [disabled]="!canShowPreviousAgendaMonth"
+              [attr.aria-label]="i18n.t('shell.agenda.previousMonth')"
+            >‹</button>
+            <button
+              type="button"
+              (click)="changeAgendaMonth(1)"
+              [attr.aria-label]="i18n.t('shell.agenda.nextMonth')"
+            >›</button>
+          </div>
         </div>
 
         <p class="agenda-state" *ngIf="agendaLoading">{{ i18n.t('shell.agenda.loading') }}</p>
         <p class="agenda-state error" *ngIf="!agendaLoading && agendaError.length > 0">{{ agendaError }}</p>
+
+        <div class="mini-calendar" *ngIf="!agendaLoading && agendaError.length === 0">
+          <strong class="calendar-month">{{ agendaMonthLabel }}</strong>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span *ngFor="let weekday of agendaWeekdays">{{ weekday }}</span>
+          </div>
+          <div class="calendar-grid">
+            <button
+              type="button"
+              *ngFor="let day of agendaCalendarDays"
+              [class.outside]="!day.isCurrentMonth"
+              [class.today]="day.isToday"
+              [class.has-appointments]="day.appointmentCount > 0"
+              [class.busy]="day.appointmentCount > 2"
+              [class.selected]="day.key === selectedAgendaDateKey"
+              [attr.aria-label]="agendaDayLabel(day)"
+              [attr.aria-pressed]="day.key === selectedAgendaDateKey"
+              (mouseenter)="selectAgendaDay(day)"
+              (focus)="selectAgendaDay(day)"
+              (click)="selectAgendaDay(day)"
+            >
+              <span>{{ day.dayNumber }}</span>
+              <small *ngIf="day.appointmentCount > 0">{{ day.appointmentCount }}</small>
+            </button>
+          </div>
+        </div>
+
         <p class="agenda-state" *ngIf="!agendaLoading && agendaError.length === 0 && agendaItems.length === 0">
           {{ i18n.t('shell.agenda.empty') }}
         </p>
 
-        <div class="agenda-list" *ngIf="!agendaLoading && agendaError.length === 0 && agendaItems.length > 0">
-          <article class="agenda-item" *ngFor="let appointment of agendaItems">
-            <strong>{{ appointment.scheduledAt | date: 'EEE, MMM d · HH:mm' }}</strong>
-            <span>{{ appointment.reason }}</span>
-          </article>
+        <div class="agenda-details" *ngIf="selectedAgendaItems.length > 0" aria-live="polite">
+          <a
+            class="agenda-item"
+            *ngFor="let appointment of selectedAgendaItems"
+            [routerLink]="appointment.patientId ? ['/patients', appointment.patientId] : ['/appointments']"
+          >
+            <div>
+              <strong>{{ appointment.patientName || i18n.t('shell.agenda.patientUnavailable') }}</strong>
+              <span>{{ appointment.patientNumber || '-' }}</span>
+            </div>
+            <time>{{ appointment.scheduledAt | localizedDate: 'time' }}</time>
+            <small>{{ appointment.reason }}</small>
+          </a>
         </div>
 
         <a class="agenda-link" routerLink="/appointments">{{ i18n.t('shell.agenda.open') }}</a>
@@ -60,25 +115,29 @@
       </section>
     </aside>
 
+    <button
+      type="button"
+      class="navigation-backdrop"
+      *ngIf="mobileNavigationOpen"
+      (click)="closeMobileNavigation()"
+      [attr.aria-label]="i18n.t('shell.navigation.close')"
+    ></button>
+
     <section class="workspace-main">
       <header class="topbar workspace-topbar">
-        <div class="page-heading" [class.dashboard-identity-heading]="isDashboardRoute()">
-          <ng-container *ngIf="isDashboardRoute(); else routeHeading">
-            <span class="workspace-pill">{{ i18n.t('shell.workspace') }}</span>
-            <div class="role-identity">
-              <span class="role-identity-mark" aria-hidden="true">{{ roleInitial() }}</span>
-              <span>
-                <strong>{{ i18n.t(sidebarRoleLabelKey()) }}</strong>
-                <small>{{ currentUsername() || i18n.t('roles.unknown') }}</small>
-              </span>
-            </div>
-          </ng-container>
-
-          <ng-template #routeHeading>
-            <span class="workspace-pill">{{ i18n.t('shell.workspace') }}</span>
-            <h1>{{ i18n.t(contextTitleKey()) }}</h1>
-            <p>{{ i18n.t(contextDescriptionKey()) }}</p>
-          </ng-template>
+        <button
+          #mobileMenuButton
+          type="button"
+          class="mobile-menu-toggle"
+          (click)="toggleMobileNavigation()"
+          aria-controls="workspace-navigation"
+          [attr.aria-expanded]="mobileNavigationOpen"
+          [attr.aria-label]="i18n.t('shell.navigation.open')"
+        >☰</button>
+        <div class="page-heading">
+          <span class="workspace-pill">{{ i18n.t(sidebarRoleLabelKey()) }}</span>
+          <h1>{{ i18n.t(contextTitleKey()) }}</h1>
+          <p>{{ i18n.t(contextDescriptionKey()) }}</p>
         </div>
 
         <div class="actions">

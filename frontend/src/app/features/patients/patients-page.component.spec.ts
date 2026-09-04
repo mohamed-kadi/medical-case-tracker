@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
@@ -14,12 +14,14 @@ describe('PatientsPageComponent', () => {
 
   beforeEach(async () => {
     authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
-    patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', ['getVisiblePatients']);
+    patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', ['getVisiblePatientPage']);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     i18nServiceSpy.t.and.callFake((key: string) => key);
 
-    patientServiceSpy.getVisiblePatients.and.returnValue(of([]));
+    patientServiceSpy.getVisiblePatientPage.and.returnValue(
+      of({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0, last: true })
+    );
 
     await TestBed.configureTestingModule({
       imports: [PatientsPageComponent],
@@ -33,8 +35,8 @@ describe('PatientsPageComponent', () => {
   });
 
   it('loads visible patients on init', () => {
-    patientServiceSpy.getVisiblePatients.and.returnValue(
-      of([
+    patientServiceSpy.getVisiblePatientPage.and.returnValue(
+      of({ content: [
         {
           id: 20,
           firstName: 'John',
@@ -45,69 +47,81 @@ describe('PatientsPageComponent', () => {
           medicalHistory: null,
           status: 'ACTIVE'
         }
-      ])
+      ], page: 0, size: 25, totalElements: 1, totalPages: 1, last: true })
     );
 
     const fixture = TestBed.createComponent(PatientsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    expect(patientServiceSpy.getVisiblePatients).toHaveBeenCalled();
+    expect(patientServiceSpy.getVisiblePatientPage).toHaveBeenCalledWith(0, 25, '', undefined);
     expect(component.patients.length).toBe(1);
     expect(component.patients[0].id).toBe(20);
   });
 
-  it('filters patients by search term', () => {
-    patientServiceSpy.getVisiblePatients.and.returnValue(
-      of([
-        {
-          id: 1,
-          firstName: 'John',
-          lastName: 'Doe',
-          dateOfBirth: '1989-05-01',
-          email: 'john@clinic.com',
-          status: 'ACTIVE'
-        },
-        {
-          id: 2,
-          firstName: 'Nora',
-          lastName: 'Smith',
-          dateOfBirth: '1991-03-12',
-          email: 'nora@clinic.com',
-          status: 'ACTIVE'
-        }
-      ])
+  it('sends debounced search terms to the server', fakeAsync(() => {
+    patientServiceSpy.getVisiblePatientPage.and.returnValue(
+      of({
+        content: [{ id: 2, firstName: 'Nora', lastName: 'Smith', email: 'nora@clinic.com', status: 'ACTIVE' }],
+        page: 0,
+        size: 25,
+        totalElements: 1,
+        totalPages: 1,
+        last: true
+      })
     );
 
     const fixture = TestBed.createComponent(PatientsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    component.searchTerm = 'nora';
-    expect(component.filteredPatients.length).toBe(1);
-    expect(component.filteredPatients[0].id).toBe(2);
+    component.updateSearchTerm('nora');
+    tick(250);
+
+    expect(patientServiceSpy.getVisiblePatientPage).toHaveBeenCalledWith(0, 25, 'nora', undefined);
+    expect(component.patients[0].id).toBe(2);
+  }));
+
+  it('searches patient numbers and limits the initial rendered batch', () => {
+    patientServiceSpy.getVisiblePatientPage.and.callFake((page) =>
+      of({
+        content: Array.from({ length: page === 0 ? 25 : 5 }, (_, index) => ({
+          id: page * 25 + index + 1,
+          patientNumber: `MT-2030-${String(page * 25 + index + 1).padStart(6, '0')}`,
+          firstName: `Patient${index + 1}`,
+          lastName: 'Example',
+          email: `patient${index + 1}@clinic.com`,
+          status: 'ACTIVE'
+        })),
+        page,
+        size: 25,
+        totalElements: 30,
+        totalPages: 2,
+        last: page === 1
+      })
+    );
+
+    const fixture = TestBed.createComponent(PatientsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(component.visiblePatients.length).toBe(25);
+    component.showMore();
+    expect(component.visiblePatients.length).toBe(30);
+
+    expect(patientServiceSpy.getVisiblePatientPage).toHaveBeenCalledWith(1, 25, '', undefined);
   });
 
   it('filters patients by status', () => {
-    patientServiceSpy.getVisiblePatients.and.returnValue(
-      of([
-        {
-          id: 1,
-          firstName: 'John',
-          lastName: 'Doe',
-          dateOfBirth: '1989-05-01',
-          email: 'john@clinic.com',
-          status: 'ACTIVE'
-        },
-        {
+    patientServiceSpy.getVisiblePatientPage.and.returnValue(
+      of({ content: [{
           id: 2,
           firstName: 'Nora',
           lastName: 'Smith',
           dateOfBirth: '1991-03-12',
           email: 'nora@clinic.com',
           status: 'INACTIVE'
-        }
-      ])
+        }], page: 0, size: 25, totalElements: 1, totalPages: 1, last: true })
     );
 
     const fixture = TestBed.createComponent(PatientsPageComponent);
@@ -116,8 +130,8 @@ describe('PatientsPageComponent', () => {
 
     component.setStatusFilter('INACTIVE');
 
-    expect(component.filteredPatients.length).toBe(1);
-    expect(component.filteredPatients[0].id).toBe(2);
+    expect(patientServiceSpy.getVisiblePatientPage).toHaveBeenCalledWith(0, 25, '', 'INACTIVE');
+    expect(component.patients[0].id).toBe(2);
   });
 
   it('clears search and status filters', () => {

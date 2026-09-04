@@ -4,11 +4,13 @@ import { CommonModule } from '@angular/common';
 import { PatientPortalDashboard } from '../../core/models/patient-portal.model';
 import { PatientPortalService } from '../../core/services/patient-portal.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { StatusLabelPipe } from '../../shared/status-label.pipe';
 
 @Component({
   selector: 'app-patient-portal-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LocalizedDatePipe, StatusLabelPipe],
   template: `
     <section class="patient-portal-shell">
       <header class="portal-hero">
@@ -49,7 +51,7 @@ import { I18nService } from '../../core/services/i18n.service';
             <dl>
               <div>
                 <dt>{{ i18n.t('patientPortal.profile.status') }}</dt>
-                <dd>{{ patient.status }}</dd>
+                <dd>{{ patient.status | statusLabel: 'patients' }}</dd>
               </div>
               <div>
                 <dt>{{ i18n.t('patientPortal.profile.birthDate') }}</dt>
@@ -87,9 +89,9 @@ import { I18nService } from '../../core/services/i18n.service';
             </p>
             <div class="appointment-list" *ngIf="portal.upcomingAppointments.length > 0">
               <article class="appointment-item" *ngFor="let appointment of portal.upcomingAppointments">
-                <strong>{{ appointment.scheduledAt | date: 'EEE, MMM d · HH:mm' }}</strong>
+                <strong>{{ appointment.scheduledAt | localizedDate: 'appointment' }}</strong>
                 <span>{{ appointment.reason }}</span>
-                <small>{{ appointment.status }}</small>
+                <small>{{ appointment.status | statusLabel: 'appointments' }}</small>
               </article>
             </div>
           </article>

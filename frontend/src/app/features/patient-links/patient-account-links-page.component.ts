@@ -16,14 +16,6 @@ import { PatientAccountLinkService } from '../../core/services/patient-account-l
   imports: [CommonModule],
   template: `
     <section class="links-shell">
-      <header class="links-header">
-        <div>
-          <p class="kicker">{{ i18n.t('patientLinks.kicker') }}</p>
-          <h1>{{ i18n.t('patientLinks.title') }}</h1>
-          <p>{{ i18n.t('patientLinks.description') }}</p>
-        </div>
-      </header>
-
       <section class="flow-grid">
         <article class="panel patient-panel">
           <span class="step">1</span>
@@ -160,35 +152,9 @@ import { PatientAccountLinkService } from '../../core/services/patient-account-l
       gap: 1rem;
     }
 
-    .links-header {
-      border: 1px solid var(--surface-strong);
-      border-radius: 1.1rem;
-      background:
-        radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 19rem),
-        linear-gradient(135deg, color-mix(in srgb, #8bd46e 12%, transparent), transparent 58%),
-        var(--surface-elevated);
-      box-shadow: var(--elevation-soft);
-      padding: clamp(1.1rem, 2.2vw, 1.7rem);
-    }
-
-    .kicker {
-      margin: 0 0 0.35rem;
-      color: var(--accent);
-      font-size: 0.74rem;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    h1,
     h2,
     p {
       margin: 0;
-    }
-
-    h1 {
-      font-size: clamp(1.75rem, 3vw, 2.8rem);
-      line-height: 1.08;
     }
 
     h2 {

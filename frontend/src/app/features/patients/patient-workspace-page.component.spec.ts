@@ -33,8 +33,7 @@ describe('PatientWorkspacePageComponent', () => {
     ]);
     appointmentServiceSpy = jasmine.createSpyObj<AppointmentService>('AppointmentService', [
       'getAppointmentsByPatientId',
-      'createAppointment',
-      'deleteAppointment'
+      'updateAppointmentStatus'
     ]);
     authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
@@ -122,16 +121,15 @@ describe('PatientWorkspacePageComponent', () => {
       ])
     );
 
-    appointmentServiceSpy.createAppointment.and.returnValue(
+    appointmentServiceSpy.updateAppointmentStatus.and.returnValue(
       of({
-        id: 51,
-        scheduledAt: '2030-01-02T10:00:00',
-        reason: 'New visit',
+        id: 50,
+        scheduledAt: '2030-01-01T08:30:00',
+        reason: 'Follow-up',
         notes: null,
-        status: 'SCHEDULED'
+        status: 'CANCELLED'
       })
     );
-    appointmentServiceSpy.deleteAppointment.and.returnValue(of(void 0));
 
     await TestBed.configureTestingModule({
       imports: [PatientWorkspacePageComponent],
@@ -158,29 +156,14 @@ describe('PatientWorkspacePageComponent', () => {
     expect(appointmentServiceSpy.getAppointmentsByPatientId).toHaveBeenCalledWith(20);
     expect(component.activeCasesCount).toBe(1);
     expect(component.orderedCases[0].id).toBe(100);
-    expect(component.selectedCaseId).toBe(100);
   });
 
-  it('creates appointment for current patient', () => {
+  it('routes scheduling to the appointments page with the patient preselected', () => {
     const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
     fixture.detectChanges();
 
-    const component = fixture.componentInstance;
-    component.appointmentForm.patchValue({
-      scheduledAt: '2030-01-02T10:00',
-      reason: 'New visit',
-      notes: ''
-    });
-
-    component.createAppointment();
-
-    expect(appointmentServiceSpy.createAppointment).toHaveBeenCalledWith(20, {
-      scheduledAt: '2030-01-02T10:00:00',
-      reason: 'New visit',
-      notes: null
-    });
-    expect(component.appointments.length).toBe(2);
-    expect(component.successMessage).toBe('appointments.create.success');
+    expect(fixture.nativeElement.querySelector('a[href="/appointments?patientId=20"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('input[type="datetime-local"]')).toBeNull();
   });
 
   it('renders the patient card and prints it', () => {
@@ -204,82 +187,36 @@ describe('PatientWorkspacePageComponent', () => {
     expect(printWindow.print).toHaveBeenCalled();
   });
 
-  it('deletes appointment and updates list', () => {
+  it('cancels appointment and preserves it in the patient history', () => {
     spyOn(window, 'confirm').and.returnValue(true);
 
     const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    component.deleteAppointment(50);
+    component.cancelAppointment(50);
 
-    expect(appointmentServiceSpy.deleteAppointment).toHaveBeenCalledWith(50);
-    expect(component.appointments.length).toBe(0);
-    expect(component.successMessage).toBe('appointments.delete.success');
+    expect(appointmentServiceSpy.updateAppointmentStatus).toHaveBeenCalledWith(50, 'CANCELLED');
+    expect(component.appointments.length).toBe(1);
+    expect(component.appointments[0].status).toBe('CANCELLED');
+    expect(component.successMessage).toBe('appointments.cancel.success');
   });
 
-  it('creates case when role is doctor', () => {
+  it('keeps case details read-only and routes editing to the full case workspace', () => {
     const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
     fixture.detectChanges();
 
-    const component = fixture.componentInstance;
-    component.createCaseForm.patchValue({
-      title: 'New case',
-      description: '',
-      treatmentPlan: ''
-    });
-
-    component.createCase();
-
-    expect(caseServiceSpy.createCase).toHaveBeenCalledWith(20, {
-      title: 'New case',
-      description: null,
-      treatmentPlan: null
-    });
-    expect(component.successMessage).toBe('patientWorkspace.cases.createSuccess');
+    expect(fixture.nativeElement.querySelector('form[formgroup="createCaseForm"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/patients/20/cases?caseId=100"]')).not.toBeNull();
   });
 
-  it('updates selected case and status when role is doctor', () => {
-    const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
-    fixture.detectChanges();
-
-    const component = fixture.componentInstance;
-    component.caseEditorForm.patchValue({
-      title: 'Initial assessment updated',
-      description: 'new details',
-      treatmentPlan: 'updated plan',
-      status: 'IN_PROGRESS'
-    });
-
-    component.saveSelectedCase();
-
-    expect(caseServiceSpy.updateCase).toHaveBeenCalledWith(100, {
-      title: 'Initial assessment updated',
-      description: 'new details',
-      treatmentPlan: 'updated plan',
-      status: 'IN_PROGRESS'
-    });
-    expect(caseServiceSpy.updateCaseStatus).toHaveBeenCalledWith(100, 'IN_PROGRESS');
-    expect(component.successMessage).toBe('patientWorkspace.cases.updateSuccess');
-  });
-
-  it('does not load or create cases when role is front desk', () => {
+  it('does not load cases when role is front desk', () => {
     authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
 
     const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
     fixture.detectChanges();
 
-    const component = fixture.componentInstance;
-    component.createCaseForm.patchValue({
-      title: 'Staff case',
-      description: '',
-      treatmentPlan: ''
-    });
-
-    component.createCase();
-
     expect(caseServiceSpy.getCasesByPatientId).not.toHaveBeenCalled();
-    expect(caseServiceSpy.createCase).not.toHaveBeenCalled();
   });
 
   it('shows backend details when patient load fails', () => {

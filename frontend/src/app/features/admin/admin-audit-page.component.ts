@@ -1,28 +1,19 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 
 import { AuditEvent } from '../../core/models/audit-event.model';
 import { AuditService } from '../../core/services/audit.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 
 @Component({
   selector: 'app-admin-audit-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, LocalizedDatePipe],
   template: `
     <section class="audit-shell">
-      <header class="audit-hero">
-        <div>
-          <span class="eyebrow">{{ i18n.t('admin.audit.eyebrow') }}</span>
-          <h1>{{ i18n.t('admin.audit.title') }}</h1>
-          <p>{{ i18n.t('admin.audit.description') }}</p>
-        </div>
-        <a class="back-link" routerLink="/dashboard">{{ i18n.t('admin.audit.back') }}</a>
-      </header>
-
-      <section class="audit-summary" aria-label="Audit summary">
+      <section class="audit-summary" [attr.aria-label]="i18n.t('admin.audit.summary.label')">
         <article>
           <span>{{ i18n.t('admin.audit.summary.events') }}</span>
           <strong>{{ events.length }}</strong>
@@ -95,7 +86,7 @@ import { I18nService } from '../../core/services/i18n.service';
                 <span class="action-badge" [ngClass]="actionToneClass(event.action)">
                   {{ actionLabel(event.action) }}
                 </span>
-                <time>{{ event.createdAt | date: 'medium' }}</time>
+                <time>{{ event.createdAt | localizedDate: 'medium' }}</time>
               </header>
 
               <h3>{{ entityLabel(event.entityType) }} #{{ event.entityId }}</h3>
@@ -137,7 +128,6 @@ import { I18nService } from '../../core/services/i18n.service';
       gap: 1rem;
     }
 
-    .audit-hero,
     .filter-card,
     .timeline-panel,
     .empty-state {
@@ -147,33 +137,6 @@ import { I18nService } from '../../core/services/i18n.service';
       box-shadow: var(--elevation-soft);
     }
 
-    .audit-hero {
-      padding: clamp(1rem, 2vw, 1.35rem);
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: start;
-      background:
-        radial-gradient(circle at 7% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 18rem),
-        linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 58%),
-        var(--surface-elevated);
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      width: fit-content;
-      border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--surface-strong));
-      border-radius: 999px;
-      padding: 0.18rem 0.52rem;
-      color: var(--ink);
-      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    h1,
     h2,
     h3 {
       margin: 0;
@@ -464,20 +427,7 @@ import { I18nService } from '../../core/services/i18n.service';
       color: var(--muted);
     }
 
-    .back-link {
-      color: var(--ink);
-      width: fit-content;
-      font-weight: 600;
-      text-decoration: none;
-      border: 1px solid var(--surface-strong);
-      border-radius: 0.58rem;
-      background: var(--surface);
-      padding: 0.48rem 0.65rem;
-      white-space: nowrap;
-    }
-
     @media (max-width: 720px) {
-      .audit-hero,
       .event-header {
         display: grid;
       }

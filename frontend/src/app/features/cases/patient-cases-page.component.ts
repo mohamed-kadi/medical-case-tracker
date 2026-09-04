@@ -7,30 +7,28 @@ import { of, switchMap } from 'rxjs';
 
 import { Patient } from '../../core/models/patient.model';
 import { PatientService } from '../../core/services/patient.service';
+import { ConfirmationService } from '../../shared/confirmation.service';
 import { CaseService } from '../../core/services/case.service';
 import { CaseStatus, CASE_STATUSES, MedicalCase } from '../../core/models/case.model';
 import { ImageCategory, IMAGE_CATEGORIES, MedicalImage } from '../../core/models/image.model';
 import { ImageService } from '../../core/services/image.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { StatusLabelPipe } from '../../shared/status-label.pipe';
 
 @Component({
   selector: 'app-patient-cases-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, StatusLabelPipe],
   template: `
     <section class="cases-shell">
       <header class="cases-header">
         <div>
-          <h1>{{ i18n.t('cases.title') }}</h1>
-          <p>
-            {{
-              patient
-                ? (patient.firstName + ' ' + patient.lastName + ' · ' + patient.email)
-                : i18n.t('cases.description')
-            }}
-          </p>
+          <h1>{{ patient ? (patient.firstName + ' ' + patient.lastName) : i18n.t('cases.title') }}</h1>
+          <p *ngIf="patient">{{ patient.patientNumber || '-' }} · {{ patient.email }}</p>
         </div>
-        <a class="back-link" routerLink="/patients">{{ i18n.t('cases.back') }}</a>
+        <a class="back-link" [routerLink]="patient ? ['/patients', patient.id] : ['/patients']">
+          {{ i18n.t('cases.backToPatient') }}
+        </a>
       </header>
 
       <section class="overview">
@@ -44,7 +42,7 @@ import { I18nService } from '../../core/services/i18n.service';
         </article>
         <article class="overview-card">
           <span>{{ i18n.t('cases.overview.selectedStatus') }}</span>
-          <strong>{{ selectedCase ? statusLabel(selectedCase.status) : '-' }}</strong>
+          <strong>{{ selectedCase ? (selectedCase.status | statusLabel: 'cases') : '-' }}</strong>
         </article>
       </section>
 
@@ -64,7 +62,7 @@ import { I18nService } from '../../core/services/i18n.service';
               (click)="selectCase(medicalCase.id)"
             >
               <strong>{{ medicalCase.title }}</strong>
-              <small>{{ statusLabel(medicalCase.status) }}</small>
+              <small>{{ medicalCase.status | statusLabel: 'cases' }}</small>
             </button>
           </div>
           <ng-template #emptyCases>
@@ -114,7 +112,7 @@ import { I18nService } from '../../core/services/i18n.service';
                 {{ i18n.t('cases.editor.statusLabel') }}
                 <select formControlName="status">
                   <option *ngFor="let status of caseStatuses" [ngValue]="status">
-                    {{ statusLabel(status) }}
+                    {{ status | statusLabel: 'cases' }}
                   </option>
                 </select>
               </label>
@@ -520,6 +518,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     private readonly patientService: PatientService,
     private readonly caseService: CaseService,
     private readonly imageService: ImageService,
+    private readonly confirmation: ConfirmationService,
     public readonly i18n: I18nService
   ) {
     this.createCaseForm = this.formBuilder.nonNullable.group({
@@ -746,6 +745,9 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   }
 
   deleteImage(imageId: number): void {
+    if (!this.confirmation.confirm('cases.images.deleteConfirm')) {
+      return;
+    }
     this.imageErrorMessage = '';
     this.imageSuccessMessage = '';
     this.imageService.deleteImage(imageId).subscribe({
@@ -797,12 +799,6 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   closePreview(): void {
     this.releasePreviewObjectUrl();
     this.previewImageName = '';
-  }
-
-  statusLabel(status: CaseStatus): string {
-    const key = `cases.status.${status}`;
-    const translated = this.i18n.t(key);
-    return translated === key ? status : translated;
   }
 
   categoryLabel(category: ImageCategory): string {

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -8,7 +8,9 @@ import { AuthService } from './core/services/auth.service';
 import { Appointment } from './core/models/appointment.model';
 import { AppointmentService } from './core/services/appointment.service';
 import { I18nService } from './core/services/i18n.service';
+import { LanguageService } from './core/services/language.service';
 import { LanguageSwitcherComponent } from './shared/language-switcher.component';
+import { LocalizedDatePipe } from './shared/localized-date.pipe';
 
 type InternalRole = 'ADMIN' | 'DOCTOR' | 'FRONT_DESK';
 
@@ -20,23 +22,28 @@ interface WorkspaceNavItem {
   roles: InternalRole[];
 }
 
-interface WorkspaceAction {
-  labelKey: string;
-  route: string;
+interface AgendaCalendarDay {
+  date: Date;
+  key: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  appointmentCount: number;
 }
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, LanguageSwitcherComponent],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, LanguageSwitcherComponent, LocalizedDatePipe],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit, OnDestroy {
+  @ViewChild('mobileMenuButton') private mobileMenuButton?: ElementRef<HTMLButtonElement>;
+  @ViewChild('mobileCloseButton') private mobileCloseButton?: ElementRef<HTMLButtonElement>;
   private readonly workspaceNav: WorkspaceNavItem[] = [
     { labelKey: 'nav.dashboard', route: '/dashboard', icon: 'D', roles: ['ADMIN', 'DOCTOR', 'FRONT_DESK'] },
     { labelKey: 'nav.patients', route: '/patients', icon: 'P', prefixMatch: true, roles: ['DOCTOR', 'FRONT_DESK'] },
-    { labelKey: 'nav.newPatient', route: '/patients/new', icon: '+', roles: ['DOCTOR', 'FRONT_DESK'] },
     { labelKey: 'nav.appointments', route: '/appointments', icon: 'A', roles: ['DOCTOR', 'FRONT_DESK'] },
     { labelKey: 'nav.patientLinks', route: '/patient-links', icon: 'V', roles: ['ADMIN', 'FRONT_DESK'] },
     { labelKey: 'nav.adminUsers', route: '/admin/users', icon: 'U', roles: ['ADMIN'] },
@@ -47,15 +54,19 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
   private agendaRequest: Subscription | null = null;
 
-  agendaRange: 'TODAY' | 'WEEK' = 'WEEK';
+  agendaMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  selectedAgendaDateKey = '';
   agendaItems: Appointment[] = [];
   agendaLoading = false;
   agendaError = '';
+  mobileNavigationOpen = false;
 
   constructor(
     private readonly authService: AuthService,
     private readonly appointmentService: AppointmentService,
     private readonly router: Router,
+    private readonly languageService: LanguageService,
+    private readonly hostElement: ElementRef<HTMLElement>,
     public readonly i18n: I18nService
   ) {}
 
@@ -64,7 +75,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.router.events
         .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
-        .subscribe(() => this.refreshClinicalAgenda())
+        .subscribe(() => {
+          this.closeMobileNavigation(false);
+          this.refreshClinicalAgenda();
+        })
     );
   }
 
@@ -118,6 +132,53 @@ export class AppComponent implements OnInit, OnDestroy {
       return 'role-front-desk';
     }
     return '';
+  }
+
+  toggleMobileNavigation(): void {
+    if (this.mobileNavigationOpen) {
+      this.closeMobileNavigation();
+      return;
+    }
+    this.mobileNavigationOpen = true;
+    window.requestAnimationFrame(() => this.mobileCloseButton?.nativeElement.focus());
+  }
+
+  closeMobileNavigation(restoreFocus = true): void {
+    if (!this.mobileNavigationOpen) {
+      return;
+    }
+    this.mobileNavigationOpen = false;
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => this.mobileMenuButton?.nativeElement.focus());
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  handleEscapeKey(): void {
+    this.closeMobileNavigation();
+  }
+
+  @HostListener('document:keydown.tab', ['$event'])
+  keepMobileNavigationFocus(event: KeyboardEvent): void {
+    if (!this.mobileNavigationOpen) {
+      return;
+    }
+    const sidebar = this.hostElement.nativeElement.querySelector<HTMLElement>('#workspace-navigation');
+    const focusable = Array.from(
+      sidebar?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? []
+    );
+    if (focusable.length === 0) {
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   contextTitleKey(): string {
@@ -188,50 +249,81 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.dashboardDescriptionKey();
   }
 
-  contextActions(): WorkspaceAction[] {
-    const path = this.currentPath();
-    const role = this.currentRole();
-    if (!this.isInternalRole(role)) {
-      return [];
-    }
-
-    if (role === 'ADMIN') {
-      const actions: WorkspaceAction[] = [
-        { labelKey: 'nav.dashboard', route: '/dashboard' },
-        { labelKey: 'nav.patientLinks', route: '/patient-links' },
-        { labelKey: 'nav.adminUsers', route: '/admin/users' },
-        { labelKey: 'nav.adminAssignments', route: '/admin/assignments' },
-        { labelKey: 'nav.adminAudit', route: '/admin/audit' },
-        { labelKey: 'nav.adminBackups', route: '/admin/backups' }
-      ];
-      return actions.filter((action) => action.route !== path);
-    }
-
-    const clinicalActions: WorkspaceAction[] = [
-      { labelKey: 'nav.dashboard', route: '/dashboard' },
-      { labelKey: 'nav.patients', route: '/patients' },
-      { labelKey: 'nav.appointments', route: '/appointments' },
-      { labelKey: 'nav.patientLinks', route: '/patient-links' },
-      { labelKey: 'nav.newPatient', route: '/patients/new' }
-    ];
-    return clinicalActions.filter((action) => action.route !== path);
-  }
-
   showClinicalAgenda(): boolean {
     const role = this.currentRole();
     return this.isAuthenticated() && (role === 'DOCTOR' || role === 'FRONT_DESK');
   }
 
-  showContextActions(): boolean {
-    return !this.showClinicalAgenda() && this.contextActions().length > 0;
-  }
-
-  onAgendaRangeChange(value: string): void {
-    if (value !== 'TODAY' && value !== 'WEEK') {
+  changeAgendaMonth(offset: number): void {
+    const nextMonth = new Date(this.agendaMonth.getFullYear(), this.agendaMonth.getMonth() + offset, 1);
+    const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    if (nextMonth < currentMonth) {
       return;
     }
-    this.agendaRange = value;
+    this.agendaMonth = nextMonth;
+    this.selectedAgendaDateKey = '';
     this.refreshClinicalAgenda();
+  }
+
+  get canShowPreviousAgendaMonth(): boolean {
+    const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    return this.agendaMonth > currentMonth;
+  }
+
+  get agendaMonthLabel(): string {
+    return new Intl.DateTimeFormat(this.languageService.getCurrentLanguage(), {
+      month: 'long',
+      year: 'numeric'
+    }).format(this.agendaMonth);
+  }
+
+  get agendaWeekdays(): string[] {
+    const formatter = new Intl.DateTimeFormat(this.languageService.getCurrentLanguage(), { weekday: 'narrow' });
+    const sunday = new Date(2026, 0, 4);
+    return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(2026, 0, sunday.getDate() + index)));
+  }
+
+  get agendaCalendarDays(): AgendaCalendarDay[] {
+    const first = new Date(this.agendaMonth.getFullYear(), this.agendaMonth.getMonth(), 1);
+    const start = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
+    const todayKey = this.toDateKey(new Date());
+
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+      const key = this.toDateKey(date);
+      return {
+        date,
+        key,
+        dayNumber: date.getDate(),
+        isCurrentMonth: date.getMonth() === this.agendaMonth.getMonth(),
+        isToday: key === todayKey,
+        appointmentCount: this.agendaItems.filter((appointment) => appointment.scheduledAt.slice(0, 10) === key).length
+      };
+    });
+  }
+
+  get selectedAgendaItems(): Appointment[] {
+    if (!this.selectedAgendaDateKey) {
+      return [];
+    }
+    return this.agendaItems.filter((appointment) => appointment.scheduledAt.slice(0, 10) === this.selectedAgendaDateKey);
+  }
+
+  selectAgendaDay(day: AgendaCalendarDay): void {
+    if (day.appointmentCount > 0) {
+      this.selectedAgendaDateKey = day.key;
+    }
+  }
+
+  agendaDayLabel(day: AgendaCalendarDay): string {
+    const date = new Intl.DateTimeFormat(this.languageService.getCurrentLanguage(), {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    }).format(day.date);
+    return day.appointmentCount === 0
+      ? date
+      : `${date}, ${day.appointmentCount} ${this.i18n.t('shell.agenda.appointments')}`;
   }
 
   isRoutePrefix(prefix: string): boolean {
@@ -245,10 +337,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   isRoute(route: string): boolean {
     return this.currentPath() === route;
-  }
-
-  isDashboardRoute(): boolean {
-    return this.currentPath() === '/dashboard';
   }
 
   sidebarRoleLabel(): string {
@@ -268,20 +356,6 @@ export class AppComponent implements OnInit, OnDestroy {
       return 'roles.frontDesk';
     }
     return 'roles.unknown';
-  }
-
-  roleInitial(): string {
-    const role = this.currentRole();
-    if (role === 'ADMIN') {
-      return 'A';
-    }
-    if (role === 'DOCTOR') {
-      return 'D';
-    }
-    if (role === 'FRONT_DESK') {
-      return 'F';
-    }
-    return '?';
   }
 
   logout(): void {
@@ -374,12 +448,23 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.agendaLoading = true;
     this.agendaError = '';
-    const from = this.agendaRange === 'TODAY' ? this.startOfToday() : new Date();
+    const currentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const from = this.agendaMonth.getTime() === currentMonth.getTime()
+      ? new Date()
+      : new Date(this.agendaMonth);
+    const to = new Date(this.agendaMonth.getFullYear(), this.agendaMonth.getMonth() + 1, 1);
 
     this.agendaRequest?.unsubscribe();
-    this.agendaRequest = this.appointmentService.getUpcomingAppointments(this.toLocalDateTime(from)).subscribe({
+    this.agendaRequest = this.appointmentService
+      .getUpcomingAppointments(this.toLocalDateTime(from), this.toLocalDateTime(to))
+      .subscribe({
       next: (appointments) => {
-        this.agendaItems = appointments.slice(0, 8);
+        this.agendaItems = appointments;
+        const firstInMonth = appointments.find((appointment) => {
+          const date = new Date(appointment.scheduledAt);
+          return date.getFullYear() === this.agendaMonth.getFullYear() && date.getMonth() === this.agendaMonth.getMonth();
+        });
+        this.selectedAgendaDateKey = firstInMonth?.scheduledAt.slice(0, 10) ?? '';
         this.agendaLoading = false;
       },
       error: (error: unknown) => {
@@ -408,11 +493,6 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.i18n.t(fallbackKey);
   }
 
-  private startOfToday(): Date {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  }
-
   private toLocalDateTime(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -421,5 +501,12 @@ export class AppComponent implements OnInit, OnDestroy {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
+
+  private toDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

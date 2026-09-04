@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
@@ -14,6 +14,9 @@ import { I18nService } from '../../core/services/i18n.service';
     <section class="auth-panel">
       <h1>{{ i18n.t('auth.login.title') }}</h1>
       <p>{{ i18n.t('auth.login.description') }}</p>
+      <p class="session-notice" *ngIf="sessionExpired" role="status">
+        {{ i18n.t('auth.login.sessionExpired') }}
+      </p>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
         <label>
@@ -105,6 +108,15 @@ import { I18nService } from '../../core/services/i18n.service';
       margin-top: 0.7rem;
     }
 
+    .session-notice {
+      border: 1px solid color-mix(in srgb, #f59e0b 48%, var(--surface-strong));
+      border-radius: 0.6rem;
+      padding: 0.65rem 0.75rem;
+      background: color-mix(in srgb, #f59e0b 10%, var(--surface));
+      color: var(--ink);
+      font-size: 0.88rem;
+    }
+
     .route-link {
       margin-top: 1rem;
     }
@@ -120,13 +132,16 @@ export class LoginPageComponent {
 
   isSubmitting = false;
   errorMessage = '';
+  readonly sessionExpired: boolean;
 
   constructor(
     private readonly formBuilder: FormBuilder,
     private readonly authService: AuthService,
     private readonly router: Router,
+    route: ActivatedRoute,
     public readonly i18n: I18nService
   ) {
+    this.sessionExpired = route.snapshot.queryParamMap.get('reason') === 'expired';
     this.form = this.formBuilder.nonNullable.group({
       username: ['', [Validators.required]],
       password: ['', [Validators.required]]

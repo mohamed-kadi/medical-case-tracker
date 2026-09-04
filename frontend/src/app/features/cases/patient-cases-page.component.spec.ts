@@ -241,4 +241,25 @@ describe('PatientCasesPageComponent', () => {
     expect(imageServiceSpy.getImagesByCase).toHaveBeenCalledWith(501, 'MRI');
     expect(component.imageCategoryFilter).toBe('MRI');
   });
+
+  it('deletes a medical image only after confirmation', () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    const fixture = TestBed.createComponent(PatientCasesPageComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.deleteImage(301);
+
+    expect(window.confirm).toHaveBeenCalledWith('cases.images.deleteConfirm');
+    expect(imageServiceSpy.deleteImage).toHaveBeenCalledWith(301);
+  });
+
+  it('keeps a medical image when deletion is not confirmed', () => {
+    spyOn(window, 'confirm').and.returnValue(false);
+    const fixture = TestBed.createComponent(PatientCasesPageComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.deleteImage(301);
+
+    expect(imageServiceSpy.deleteImage).not.toHaveBeenCalled();
+  });
 });
