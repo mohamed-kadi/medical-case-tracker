@@ -6,11 +6,13 @@ import { PatientFormPageComponent } from './patient-form-page.component';
 import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { ConfirmationService } from '../../shared/confirmation.service';
 
 describe('PatientFormPageComponent', () => {
   let authServiceSpy: jasmine.SpyObj<AuthService>;
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
+  let confirmationSpy: jasmine.SpyObj<ConfirmationService>;
   const activatedRouteMock = {
     snapshot: {
       paramMap: convertToParamMap({})
@@ -25,8 +27,10 @@ describe('PatientFormPageComponent', () => {
       'updatePatient'
     ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    confirmationSpy = jasmine.createSpyObj<ConfirmationService>('ConfirmationService', ['confirm']);
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     i18nServiceSpy.t.and.callFake((key: string) => key);
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(true));
 
     patientServiceSpy.getPatientById.and.returnValue(
       of({
@@ -72,7 +76,8 @@ describe('PatientFormPageComponent', () => {
         { provide: ActivatedRoute, useValue: activatedRouteMock },
         { provide: AuthService, useValue: authServiceSpy },
         { provide: PatientService, useValue: patientServiceSpy },
-        { provide: I18nService, useValue: i18nServiceSpy }
+        { provide: I18nService, useValue: i18nServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationSpy }
       ]
     }).compileComponents();
   });
@@ -139,17 +144,17 @@ describe('PatientFormPageComponent', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/patients');
   });
 
-  it('requires confirmation before making a patient inactive', () => {
+  it('requires confirmation before making a patient inactive', async () => {
     activatedRouteMock.snapshot.paramMap = convertToParamMap({ id: '20' });
-    spyOn(window, 'confirm').and.returnValue(false);
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(false));
     const fixture = TestBed.createComponent(PatientFormPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
     component.form.patchValue({ status: 'INACTIVE' });
-    component.submit();
+    await component.submit();
 
-    expect(window.confirm).toHaveBeenCalledWith('patients.form.statusChangeConfirm');
+    expect(confirmationSpy.confirm).toHaveBeenCalled();
     expect(patientServiceSpy.updatePatient).not.toHaveBeenCalled();
   });
 

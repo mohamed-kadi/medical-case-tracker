@@ -1,12 +1,43 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 
-import { I18nService } from '../core/services/i18n.service';
+export interface ConfirmationRequest {
+  titleKey: string;
+  messageKey: string;
+  confirmKey: string;
+  cancelKey: string;
+  tone: 'default' | 'danger';
+}
+
+export interface ConfirmationOptions {
+  titleKey?: string;
+  confirmKey?: string;
+  cancelKey?: string;
+  tone?: 'default' | 'danger';
+}
 
 @Injectable({ providedIn: 'root' })
 export class ConfirmationService {
-  constructor(private readonly i18n: I18nService) {}
+  private readonly activeRequest = signal<ConfirmationRequest | null>(null);
+  private pendingResolution: ((confirmed: boolean) => void) | null = null;
+  readonly request = this.activeRequest.asReadonly();
 
-  confirm(messageKey: string): boolean {
-    return window.confirm(this.i18n.t(messageKey));
+  confirm(messageKey: string, options: ConfirmationOptions = {}): Promise<boolean> {
+    this.resolve(false);
+    this.activeRequest.set({
+      titleKey: options.titleKey ?? 'confirmation.title',
+      messageKey,
+      confirmKey: options.confirmKey ?? 'confirmation.confirm',
+      cancelKey: options.cancelKey ?? 'confirmation.cancel',
+      tone: options.tone ?? 'default'
+    });
+    return new Promise<boolean>((resolve) => {
+      this.pendingResolution = resolve;
+    });
+  }
+
+  resolve(confirmed: boolean): void {
+    this.pendingResolution?.(confirmed);
+    this.pendingResolution = null;
+    this.activeRequest.set(null);
   }
 }

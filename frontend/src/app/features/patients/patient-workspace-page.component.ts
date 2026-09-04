@@ -15,11 +15,12 @@ import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { ConfirmationService } from '../../shared/confirmation.service';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
 import { PageFeedbackComponent } from '../../shared/page-feedback.component';
+import { AppointmentReasonPipe } from '../../shared/appointment-reason.pipe';
 
 @Component({
   selector: 'app-patient-workspace-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, LocalizedDatePipe, StatusLabelPipe, PageFeedbackComponent],
+  imports: [CommonModule, RouterLink, LocalizedDatePipe, StatusLabelPipe, PageFeedbackComponent, AppointmentReasonPipe],
   template: `
     <section class="workspace-shell">
       <header class="workspace-header">
@@ -182,7 +183,7 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
             <article class="appointment-item" *ngFor="let appointment of appointments; trackBy: trackByAppointmentId">
               <div>
                 <strong>{{ appointment.scheduledAt | localizedDate: 'medium' }}</strong>
-                <small>{{ appointment.reason }} · {{ appointment.status | statusLabel: 'appointments' }}</small>
+                <small>{{ appointment.reason | appointmentReason }} · {{ appointment.status | statusLabel: 'appointments' }}</small>
                 <p>{{ appointment.notes || '-' }}</p>
               </div>
               <button
@@ -754,12 +755,16 @@ export class PatientWorkspacePageComponent implements OnInit {
     return this.deletingAppointmentIds.has(appointmentId);
   }
 
-  cancelAppointment(appointmentId: number): void {
+  async cancelAppointment(appointmentId: number): Promise<void> {
     if (this.isDeleting(appointmentId)) {
       return;
     }
 
-    const confirmed = this.confirmation.confirm('appointments.cancel.confirm');
+    const confirmed = await this.confirmation.confirm('appointments.cancel.confirm', {
+      titleKey: 'appointments.cancel.title',
+      confirmKey: 'appointments.cancel.action',
+      tone: 'danger'
+    });
     if (!confirmed) {
       return;
     }

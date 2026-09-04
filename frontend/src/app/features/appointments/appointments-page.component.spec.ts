@@ -6,12 +6,23 @@ import { of, throwError } from 'rxjs';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
+import { ConfirmationService } from '../../shared/confirmation.service';
 import { AppointmentsPageComponent } from './appointments-page.component';
 
 describe('AppointmentsPageComponent', () => {
   let appointmentServiceSpy: jasmine.SpyObj<AppointmentService>;
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
+  let confirmationSpy: jasmine.SpyObj<ConfirmationService>;
+  const patient = {
+    id: 10,
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@clinic.com',
+    status: 'ACTIVE',
+    assignedDoctorUsername: 'doctorOne',
+    assignedFrontDeskUsername: null
+  };
 
   beforeEach(async () => {
     appointmentServiceSpy = jasmine.createSpyObj<AppointmentService>('AppointmentService', [
@@ -19,8 +30,12 @@ describe('AppointmentsPageComponent', () => {
       'createAppointment',
       'updateAppointmentStatus'
     ]);
-    patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', ['getVisiblePatients']);
+    patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', [
+      'getVisiblePatientPage',
+      'getPatientById'
+    ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    confirmationSpy = jasmine.createSpyObj<ConfirmationService>('ConfirmationService', ['confirm']);
 
     appointmentServiceSpy.getUpcomingAppointmentPage.and.returnValue(
       of({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0, last: true })
@@ -43,19 +58,11 @@ describe('AppointmentsPageComponent', () => {
         status: 'CANCELLED'
       })
     );
-    patientServiceSpy.getVisiblePatients.and.returnValue(
-      of([
-        {
-          id: 10,
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'john@clinic.com',
-          status: 'ACTIVE',
-          assignedDoctorUsername: 'doctorOne',
-          assignedFrontDeskUsername: null
-        }
-      ])
+    patientServiceSpy.getVisiblePatientPage.and.returnValue(
+      of({ content: [patient], page: 0, size: 10, totalElements: 1, totalPages: 1, last: true })
     );
+    patientServiceSpy.getPatientById.and.returnValue(of(patient));
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(true));
     i18nServiceSpy.t.and.callFake((key: string) => key);
 
     await TestBed.configureTestingModule({
@@ -64,20 +71,33 @@ describe('AppointmentsPageComponent', () => {
         provideRouter([]),
         { provide: AppointmentService, useValue: appointmentServiceSpy },
         { provide: PatientService, useValue: patientServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationSpy },
         { provide: I18nService, useValue: i18nServiceSpy }
       ]
     }).compileComponents();
   });
 
-  it('loads patients and appointments on init', () => {
+  it('starts with patient search and loads appointments on init', () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    expect(patientServiceSpy.getVisiblePatients).toHaveBeenCalled();
+    expect(patientServiceSpy.getVisiblePatientPage).not.toHaveBeenCalled();
     expect(appointmentServiceSpy.getUpcomingAppointmentPage).toHaveBeenCalledWith(0, 25);
-    expect(component.patients.length).toBe(1);
-    expect(component.patients[0].id).toBe(10);
+    expect(component.selectedPatient).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('appointments.search.title');
+  });
+
+  it('searches patient files before scheduling', () => {
+    const fixture = TestBed.createComponent(AppointmentsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.patientSearchForm.controls.query.setValue('John');
+    component.searchPatients();
+
+    expect(patientServiceSpy.getVisiblePatientPage).toHaveBeenCalledWith(0, 10, 'John');
+    expect(component.patients).toEqual([patient]);
   });
 
   it('shows patient identity in the upcoming appointments table', () => {
@@ -97,6 +117,8 @@ describe('AppointmentsPageComponent', () => {
     );
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
+    fixture.componentInstance.scheduleExpanded = true;
+    fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('John Doe');
     expect(fixture.nativeElement.textContent).toContain('MT-2030-000010');
@@ -107,18 +129,18 @@ describe('AppointmentsPageComponent', () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.selectPatient(patient);
 
     component.form.patchValue({
-      patientId: 10,
       scheduledAt: '2030-01-02T14:00',
-      reason: '  Follow-up  ',
+      reasonChoice: 'FOLLOW_UP',
       notes: '  '
     });
     component.createAppointment();
 
     expect(appointmentServiceSpy.createAppointment).toHaveBeenCalledWith(10, {
       scheduledAt: '2030-01-02T14:00:00',
-      reason: 'Follow-up',
+      reason: 'FOLLOW_UP',
       notes: null
     });
     expect(component.successMessage).toBe('appointments.create.success');
@@ -128,11 +150,12 @@ describe('AppointmentsPageComponent', () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.selectPatient(patient);
 
     component.form.patchValue({
-      patientId: 10,
       scheduledAt: '2030-01-02T14:00',
-      reason: '   ',
+      reasonChoice: 'OTHER',
+      otherReason: '   ',
       notes: ''
     });
     component.createAppointment();
@@ -149,11 +172,11 @@ describe('AppointmentsPageComponent', () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.selectPatient(patient);
 
     component.form.patchValue({
-      patientId: 10,
       scheduledAt: '2030-01-02T14:00',
-      reason: 'Follow-up',
+      reasonChoice: 'FOLLOW_UP',
       notes: ''
     });
     component.createAppointment();
@@ -175,10 +198,10 @@ describe('AppointmentsPageComponent', () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.selectPatient(patient);
     component.form.patchValue({
-      patientId: 10,
       scheduledAt: '2030-01-02T14:00',
-      reason: 'Follow-up',
+      reasonChoice: 'FOLLOW_UP',
       notes: ''
     });
 
@@ -191,10 +214,10 @@ describe('AppointmentsPageComponent', () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    component.selectPatient(patient);
     component.form.patchValue({
-      patientId: 10,
       scheduledAt: '2020-01-02T14:00',
-      reason: 'Follow-up',
+      reasonChoice: 'FOLLOW_UP',
       notes: ''
     });
 
@@ -204,9 +227,7 @@ describe('AppointmentsPageComponent', () => {
     expect(component.errorMessage).toBe('appointments.create.pastError');
   });
 
-  it('cancels appointment when user confirms', () => {
-    spyOn(window, 'confirm').and.returnValue(true);
-
+  it('cancels appointment when user confirms', async () => {
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
@@ -220,22 +241,44 @@ describe('AppointmentsPageComponent', () => {
       }
     ];
 
-    component.cancelAppointment(81);
+    await component.cancelAppointment(81);
 
+    expect(confirmationSpy.confirm).toHaveBeenCalled();
     expect(appointmentServiceSpy.updateAppointmentStatus).toHaveBeenCalledWith(81, 'CANCELLED');
     expect(component.appointments.length).toBe(0);
     expect(component.successMessage).toBe('appointments.cancel.success');
   });
 
-  it('does not cancel appointment when user cancels confirmation', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
-
+  it('does not cancel appointment when user cancels confirmation', async () => {
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(false));
     const fixture = TestBed.createComponent(AppointmentsPageComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    component.cancelAppointment(81);
+    await component.cancelAppointment(81);
 
     expect(appointmentServiceSpy.updateAppointmentStatus).not.toHaveBeenCalled();
+  });
+
+  it('adds patient-reported checklist items to optional notes', () => {
+    const fixture = TestBed.createComponent(AppointmentsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.selectPatient(patient);
+    component.form.patchValue({
+      scheduledAt: '2030-01-02T14:00',
+      reasonChoice: 'GENERAL_CONSULTATION',
+      reportsPastSurgery: true,
+      reportsAllergies: true,
+      notes: 'Bring documents'
+    });
+
+    component.createAppointment();
+
+    expect(appointmentServiceSpy.createAppointment).toHaveBeenCalledWith(10, {
+      scheduledAt: '2030-01-02T14:00:00',
+      reason: 'GENERAL_CONSULTATION',
+      notes: 'appointments.intake.notesPrefix: appointments.intake.pastSurgery; appointments.intake.allergies\nBring documents'
+    });
   });
 });

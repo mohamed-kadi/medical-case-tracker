@@ -99,7 +99,7 @@
               <span>{{ appointment.patientNumber || '-' }}</span>
             </div>
             <time>{{ appointment.scheduledAt | localizedDate: 'time' }}</time>
-            <small>{{ appointment.reason }}</small>
+            <small>{{ appointment.reason | appointmentReason }}</small>
           </a>
         </div>
 
@@ -185,3 +185,4 @@
     </main>
   </ng-template>
 </div>
+<app-confirmation-dialog></app-confirmation-dialog>

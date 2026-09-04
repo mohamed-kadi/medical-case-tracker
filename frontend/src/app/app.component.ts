@@ -11,6 +11,8 @@ import { I18nService } from './core/services/i18n.service';
 import { LanguageService } from './core/services/language.service';
 import { LanguageSwitcherComponent } from './shared/language-switcher.component';
 import { LocalizedDatePipe } from './shared/localized-date.pipe';
+import { ConfirmationDialogComponent } from './shared/confirmation-dialog.component';
+import { AppointmentReasonPipe } from './shared/appointment-reason.pipe';
 
 type InternalRole = 'ADMIN' | 'DOCTOR' | 'FRONT_DESK';
 
@@ -34,7 +36,7 @@ interface AgendaCalendarDay {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, LanguageSwitcherComponent, LocalizedDatePipe],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, LanguageSwitcherComponent, LocalizedDatePipe, ConfirmationDialogComponent, AppointmentReasonPipe],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

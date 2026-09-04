@@ -299,7 +299,7 @@ export class PatientFormPageComponent implements OnInit {
     void this.router.navigateByUrl('/patients');
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -330,11 +330,15 @@ export class PatientFormPageComponent implements OnInit {
       return;
     }
 
-    if (payload.status !== this.originalStatus
-        && payload.status !== 'ACTIVE'
-        && !this.confirmation.confirm('patients.form.statusChangeConfirm')) {
-      this.isSubmitting = false;
-      return;
+    if (payload.status !== this.originalStatus && payload.status !== 'ACTIVE') {
+      const confirmed = await this.confirmation.confirm('patients.form.statusChangeConfirm', {
+        titleKey: 'patients.form.statusChangeTitle',
+        tone: 'danger'
+      });
+      if (!confirmed) {
+        this.isSubmitting = false;
+        return;
+      }
     }
 
     this.patientService.updatePatient(this.editingPatientId, payload).subscribe({

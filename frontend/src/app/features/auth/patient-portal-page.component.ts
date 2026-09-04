@@ -6,11 +6,12 @@ import { PatientPortalService } from '../../core/services/patient-portal.service
 import { I18nService } from '../../core/services/i18n.service';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
+import { AppointmentReasonPipe } from '../../shared/appointment-reason.pipe';
 
 @Component({
   selector: 'app-patient-portal-page',
   standalone: true,
-  imports: [CommonModule, LocalizedDatePipe, StatusLabelPipe],
+  imports: [CommonModule, LocalizedDatePipe, StatusLabelPipe, AppointmentReasonPipe],
   template: `
     <section class="patient-portal-shell">
       <header class="portal-hero">
@@ -90,7 +91,7 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
             <div class="appointment-list" *ngIf="portal.upcomingAppointments.length > 0">
               <article class="appointment-item" *ngFor="let appointment of portal.upcomingAppointments">
                 <strong>{{ appointment.scheduledAt | localizedDate: 'appointment' }}</strong>
-                <span>{{ appointment.reason }}</span>
+                <span>{{ appointment.reason | appointmentReason }}</span>
                 <small>{{ appointment.status | statusLabel: 'appointments' }}</small>
               </article>
             </div>

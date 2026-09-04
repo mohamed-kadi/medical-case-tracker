@@ -8,12 +8,14 @@ import { PatientService } from '../../core/services/patient.service';
 import { CaseService } from '../../core/services/case.service';
 import { ImageService } from '../../core/services/image.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { ConfirmationService } from '../../shared/confirmation.service';
 
 describe('PatientCasesPageComponent', () => {
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let caseServiceSpy: jasmine.SpyObj<CaseService>;
   let imageServiceSpy: jasmine.SpyObj<ImageService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
+  let confirmationSpy: jasmine.SpyObj<ConfirmationService>;
 
   const activatedRouteMock = {
     snapshot: {
@@ -36,8 +38,10 @@ describe('PatientCasesPageComponent', () => {
       'downloadImage'
     ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    confirmationSpy = jasmine.createSpyObj<ConfirmationService>('ConfirmationService', ['confirm']);
 
     i18nServiceSpy.t.and.callFake((key: string) => key);
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(true));
     patientServiceSpy.getPatientById.and.returnValue(
       of({
         id: 20,
@@ -108,7 +112,8 @@ describe('PatientCasesPageComponent', () => {
         { provide: PatientService, useValue: patientServiceSpy },
         { provide: CaseService, useValue: caseServiceSpy },
         { provide: ImageService, useValue: imageServiceSpy },
-        { provide: I18nService, useValue: i18nServiceSpy }
+        { provide: I18nService, useValue: i18nServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationSpy }
       ]
     }).compileComponents();
   });
@@ -242,23 +247,22 @@ describe('PatientCasesPageComponent', () => {
     expect(component.imageCategoryFilter).toBe('MRI');
   });
 
-  it('deletes a medical image only after confirmation', () => {
-    spyOn(window, 'confirm').and.returnValue(true);
+  it('deletes a medical image only after confirmation', async () => {
     const fixture = TestBed.createComponent(PatientCasesPageComponent);
     fixture.detectChanges();
 
-    fixture.componentInstance.deleteImage(301);
+    await fixture.componentInstance.deleteImage(301);
 
-    expect(window.confirm).toHaveBeenCalledWith('cases.images.deleteConfirm');
+    expect(confirmationSpy.confirm).toHaveBeenCalled();
     expect(imageServiceSpy.deleteImage).toHaveBeenCalledWith(301);
   });
 
-  it('keeps a medical image when deletion is not confirmed', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
+  it('keeps a medical image when deletion is not confirmed', async () => {
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(false));
     const fixture = TestBed.createComponent(PatientCasesPageComponent);
     fixture.detectChanges();
 
-    fixture.componentInstance.deleteImage(301);
+    await fixture.componentInstance.deleteImage(301);
 
     expect(imageServiceSpy.deleteImage).not.toHaveBeenCalled();
   });

@@ -13,11 +13,19 @@ import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { ConfirmationService } from '../../shared/confirmation.service';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
 import { PageFeedbackComponent } from '../../shared/page-feedback.component';
+import { AppointmentReasonPipe } from '../../shared/appointment-reason.pipe';
+
+interface AppointmentReasonOption {
+  value: string;
+  labelKey: string;
+}
+
+type IntakeControlName = 'reportsConditions' | 'reportsPastSurgery' | 'reportsAllergies' | 'reportsMedication' | 'requiresAssistance';
 
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, LocalizedDatePipe, StatusLabelPipe, PageFeedbackComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, LocalizedDatePipe, StatusLabelPipe, PageFeedbackComponent, AppointmentReasonPipe],
   template: `
     <section class="appointments-shell">
       <div class="page-tools">
@@ -39,20 +47,79 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
         </article>
       </section>
 
-      <section class="panel">
-        <h2>{{ i18n.t('appointments.create.title') }}</h2>
-        <form class="appointment-form" [formGroup]="form" (ngSubmit)="createAppointment()" novalidate>
-          <div class="form-grid">
-            <label class="field patient-field">
-              {{ i18n.t('appointments.create.patient') }}
-              <select formControlName="patientId">
-                <option [ngValue]="null">{{ i18n.t('appointments.create.selectPatient') }}</option>
-                <option *ngFor="let patient of patients" [ngValue]="patient.id">
-                  {{ patient.firstName }} {{ patient.lastName }}
-                </option>
-              </select>
-            </label>
+      <section class="panel patient-search-panel">
+        <div class="section-heading">
+          <div>
+            <span class="step-label">{{ i18n.t('appointments.search.step') }}</span>
+            <h2>{{ i18n.t('appointments.search.title') }}</h2>
+            <p>{{ i18n.t('appointments.search.help') }}</p>
+          </div>
+        </div>
 
+        <form class="patient-search" [formGroup]="patientSearchForm" (ngSubmit)="searchPatients()" novalidate>
+          <label class="field">
+            {{ i18n.t('appointments.search.label') }}
+            <div class="search-control">
+              <input
+                type="search"
+                formControlName="query"
+                [placeholder]="i18n.t('appointments.search.placeholder')"
+                autocomplete="off"
+              />
+              <button type="submit" [disabled]="isLoadingPatients">
+                {{ isLoadingPatients ? i18n.t('appointments.search.searching') : i18n.t('appointments.search.action') }}
+              </button>
+            </div>
+          </label>
+        </form>
+
+        <div class="patient-results" *ngIf="patientSearchPerformed && patients.length > 0">
+          <button
+            type="button"
+            class="patient-result"
+            *ngFor="let patient of patients; trackBy: trackByPatientId"
+            [class.selected]="selectedPatient?.id === patient.id"
+            (click)="selectPatient(patient)"
+          >
+            <span>
+              <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
+              <small>
+                {{ patient.patientNumber || '-' }} · {{ patient.email }} ·
+                {{ patient.status | statusLabel: 'patients' }}
+              </small>
+            </span>
+            <span class="select-label">{{ i18n.t('appointments.search.select') }}</span>
+          </button>
+        </div>
+        <p class="search-empty" *ngIf="patientSearchPerformed && !isLoadingPatients && patients.length === 0">
+          {{ i18n.t('appointments.search.empty') }}
+          <a routerLink="/patients/new">{{ i18n.t('appointments.actions.newPatient') }}</a>
+        </p>
+      </section>
+
+      <section class="panel scheduling-panel" *ngIf="selectedPatient as patient">
+        <div class="section-heading scheduling-heading">
+          <div>
+            <span class="step-label">{{ i18n.t('appointments.create.step') }}</span>
+            <h2>{{ i18n.t('appointments.create.title') }}</h2>
+          </div>
+          <div class="selected-patient">
+            <span>
+              <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
+              <small>{{ patient.patientNumber || '-' }}</small>
+            </span>
+            <button type="button" class="text-action" (click)="clearSelectedPatient()">
+              {{ i18n.t('appointments.search.change') }}
+            </button>
+          </div>
+        </div>
+
+        <form class="appointment-form" [formGroup]="form" (ngSubmit)="createAppointment()" novalidate>
+          <p class="inactive-warning" *ngIf="patient.status !== 'ACTIVE'" role="alert">
+            {{ i18n.t('appointments.search.inactiveWarning') }}
+            <a [routerLink]="['/patients', patient.id, 'edit']">{{ i18n.t('appointments.search.reviewPatient') }}</a>
+          </p>
+          <div class="form-grid">
             <label class="field date-field">
               {{ i18n.t('appointments.create.when') }}
               <input type="datetime-local" formControlName="scheduledAt" [min]="minimumAppointmentDateTime" />
@@ -60,23 +127,53 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
 
             <label class="field reason-field">
               {{ i18n.t('appointments.create.reason') }}
-              <input type="text" formControlName="reason" [placeholder]="i18n.t('appointments.create.reasonPlaceholder')" />
+              <select formControlName="reasonChoice">
+                <option value="">{{ i18n.t('appointments.create.selectReason') }}</option>
+                <option *ngFor="let reason of appointmentReasons" [value]="reason.value">
+                  {{ i18n.t(reason.labelKey) }}
+                </option>
+              </select>
             </label>
 
-            <label class="field notes-field">
-              {{ i18n.t('appointments.create.notes') }}
-              <textarea
-                formControlName="notes"
-                [placeholder]="i18n.t('appointments.create.notesPlaceholder')"
-                rows="2"
-              ></textarea>
+            <label class="field other-reason-field" *ngIf="form.controls.reasonChoice.value === 'OTHER'">
+              {{ i18n.t('appointments.create.otherReason') }}
+              <input type="text" formControlName="otherReason" [placeholder]="i18n.t('appointments.create.otherReasonPlaceholder')" />
             </label>
           </div>
+
+          <button
+            type="button"
+            class="intake-toggle"
+            (click)="intakeExpanded = !intakeExpanded"
+            [attr.aria-expanded]="intakeExpanded"
+            aria-controls="appointment-intake"
+          >
+            <span>
+              <strong>{{ i18n.t('appointments.intake.title') }}</strong>
+              <small>{{ i18n.t('appointments.intake.help') }}</small>
+            </span>
+            <span aria-hidden="true">{{ intakeExpanded ? '−' : '+' }}</span>
+          </button>
+
+          <fieldset id="appointment-intake" class="intake-section" *ngIf="intakeExpanded">
+            <legend>{{ i18n.t('appointments.intake.patientReported') }}</legend>
+            <p>{{ i18n.t('appointments.intake.privacy') }}</p>
+            <div class="checklist">
+              <label *ngFor="let item of intakeItems">
+                <input type="checkbox" [formControlName]="item.control" />
+                <span>{{ i18n.t(item.labelKey) }}</span>
+              </label>
+            </div>
+            <label class="field notes-field">
+              {{ i18n.t('appointments.create.notes') }}
+              <textarea formControlName="notes" [placeholder]="i18n.t('appointments.create.notesPlaceholder')" rows="2"></textarea>
+            </label>
+          </fieldset>
+
           <div class="form-actions">
-            <button type="submit" [disabled]="isCreating || patients.length === 0">
+            <button type="submit" [disabled]="isCreating || patient.status !== 'ACTIVE'">
               {{ isCreating ? i18n.t('appointments.create.saving') : i18n.t('appointments.create.save') }}
             </button>
-            <small *ngIf="patients.length === 0">{{ i18n.t('appointments.create.noPatients') }}</small>
           </div>
         </form>
       </section>
@@ -88,9 +185,22 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
         [loadingText]="i18n.t('appointments.loading')"
       ></app-page-feedback>
 
-      <section class="panel">
-        <h2>{{ i18n.t('appointments.list.title') }}</h2>
+      <section class="panel schedule-panel">
+        <button
+          type="button"
+          class="panel-toggle"
+          (click)="scheduleExpanded = !scheduleExpanded"
+          [attr.aria-expanded]="scheduleExpanded"
+          aria-controls="upcoming-appointments"
+        >
+          <span>
+            <strong>{{ i18n.t('appointments.list.title') }}</strong>
+            <small>{{ i18n.t('appointments.list.summary').replace('{count}', totalAppointments.toString()) }}</small>
+          </span>
+          <span aria-hidden="true">{{ scheduleExpanded ? '−' : '+' }}</span>
+        </button>
 
+        <div id="upcoming-appointments" class="schedule-content" *ngIf="scheduleExpanded">
         <div class="table-scroll" *ngIf="!isLoadingAppointments && appointments.length > 0">
           <table>
             <thead>
@@ -119,7 +229,7 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
                   </ng-template>
                 </td>
                 <td [attr.data-label]="i18n.t('appointments.headers.when')">{{ appointment.scheduledAt | localizedDate: 'medium' }}</td>
-                <td [attr.data-label]="i18n.t('appointments.headers.reason')">{{ appointment.reason }}</td>
+                <td [attr.data-label]="i18n.t('appointments.headers.reason')">{{ appointment.reason | appointmentReason }}</td>
                 <td [attr.data-label]="i18n.t('appointments.headers.status')">{{ appointment.status | statusLabel: 'appointments' }}</td>
                 <td [attr.data-label]="i18n.t('appointments.headers.notes')">{{ appointment.notes || '-' }}</td>
                 <td [attr.data-label]="i18n.t('appointments.headers.actions')">
@@ -156,6 +266,7 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
         </button>
 
         <p *ngIf="!isLoadingAppointments && appointments.length === 0">{{ i18n.t('appointments.empty') }}</p>
+        </div>
       </section>
     </section>
   `,
@@ -247,6 +358,129 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
       font-size: 1.1rem;
     }
 
+    .section-heading,
+    .scheduling-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .section-heading p {
+      margin: 0.28rem 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .step-label {
+      display: block;
+      margin-bottom: 0.22rem;
+      color: var(--accent);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .patient-search {
+      max-width: 50rem;
+    }
+
+    .search-control {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.5rem;
+    }
+
+    .search-control input {
+      min-width: 0;
+    }
+
+    .patient-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+      gap: 0.55rem;
+    }
+
+    .patient-result {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.7rem;
+      text-align: left;
+      background: var(--surface);
+    }
+
+    .patient-result > span:first-child,
+    .selected-patient > span {
+      display: grid;
+      gap: 0.12rem;
+    }
+
+    .patient-result small,
+    .selected-patient small,
+    .panel-toggle small,
+    .intake-toggle small {
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 500;
+    }
+
+    .patient-result:hover,
+    .patient-result.selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+    }
+
+    .select-label,
+    .text-action {
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .search-empty {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .inactive-warning {
+      margin: 0;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--surface-strong));
+      border-radius: 0.6rem;
+      background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+      color: var(--ink);
+      font-size: 0.82rem;
+    }
+
+    .inactive-warning a {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .search-empty a {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .selected-patient {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--surface-strong));
+      border-radius: 0.65rem;
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    }
+
+    .text-action {
+      border: 0;
+      padding: 0.2rem;
+      background: transparent;
+    }
+
     .appointment-form {
       display: grid;
       gap: 0.65rem;
@@ -267,8 +501,7 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
       font-size: 0.84rem;
     }
 
-    .reason-field,
-    .notes-field {
+    .other-reason-field {
       grid-column: 1 / -1;
     }
 
@@ -293,6 +526,87 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
     button {
       cursor: pointer;
       font-weight: 600;
+    }
+
+    .intake-toggle,
+    .panel-toggle {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.72rem 0.8rem;
+      text-align: left;
+      background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+    }
+
+    .intake-toggle > span:first-child,
+    .panel-toggle > span:first-child {
+      display: grid;
+      gap: 0.12rem;
+    }
+
+    .intake-toggle > span:last-child,
+    .panel-toggle > span:last-child {
+      color: var(--accent);
+      font-size: 1.25rem;
+    }
+
+    .intake-section {
+      display: grid;
+      gap: 0.7rem;
+      margin: 0;
+      padding: 0.85rem;
+      border: 1px solid var(--surface-strong);
+      border-radius: 0.7rem;
+      background: var(--surface);
+    }
+
+    .intake-section legend {
+      padding: 0 0.3rem;
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .intake-section > p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      gap: 0.5rem;
+    }
+
+    .checklist label {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.55rem;
+      border: 1px solid var(--surface-strong);
+      border-radius: 0.55rem;
+      background: var(--surface-elevated);
+      color: var(--ink);
+    }
+
+    .checklist input {
+      width: 1rem;
+      height: 1rem;
+      margin-top: 0.08rem;
+      padding: 0;
+      accent-color: var(--accent);
+    }
+
+    .schedule-panel {
+      padding: 0.75rem;
+    }
+
+    .schedule-content {
+      display: grid;
+      gap: 0.75rem;
     }
 
     button.danger {
@@ -382,12 +696,25 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
       }
 
       .reason-field,
-      .notes-field {
+      .other-reason-field {
         grid-column: auto;
+      }
+
+      .scheduling-heading {
+        align-items: stretch;
+        flex-direction: column;
       }
     }
 
     @media (max-width: 700px) {
+      .search-control {
+        grid-template-columns: 1fr;
+      }
+
+      .selected-patient {
+        justify-content: space-between;
+      }
+
       .table-scroll {
         overflow: visible;
       }
@@ -444,7 +771,23 @@ import { PageFeedbackComponent } from '../../shared/page-feedback.component';
 export class AppointmentsPageComponent implements OnInit {
   private readonly pageSize = 25;
   readonly minimumAppointmentDateTime = this.toDateTimeLocalValue(new Date());
+  readonly appointmentReasons: AppointmentReasonOption[] = [
+    { value: 'GENERAL_CONSULTATION', labelKey: 'appointments.reason.generalConsultation' },
+    { value: 'FOLLOW_UP', labelKey: 'appointments.reason.followUp' },
+    { value: 'NEW_CONCERN', labelKey: 'appointments.reason.newConcern' },
+    { value: 'PROCEDURE', labelKey: 'appointments.reason.procedure' },
+    { value: 'RESULTS_REVIEW', labelKey: 'appointments.reason.resultsReview' },
+    { value: 'OTHER', labelKey: 'appointments.reason.other' }
+  ];
+  readonly intakeItems: Array<{ control: IntakeControlName; labelKey: string }> = [
+    { control: 'reportsConditions', labelKey: 'appointments.intake.conditions' },
+    { control: 'reportsPastSurgery', labelKey: 'appointments.intake.pastSurgery' },
+    { control: 'reportsAllergies', labelKey: 'appointments.intake.allergies' },
+    { control: 'reportsMedication', labelKey: 'appointments.intake.medication' },
+    { control: 'requiresAssistance', labelKey: 'appointments.intake.assistance' }
+  ];
   patients: Patient[] = [];
+  selectedPatient: Patient | null = null;
   appointments: Appointment[] = [];
 
   isLoadingPatients = false;
@@ -458,8 +801,12 @@ export class AppointmentsPageComponent implements OnInit {
   totalAppointments = 0;
   currentPage = 0;
   isLastPage = true;
+  patientSearchPerformed = false;
+  intakeExpanded = false;
+  scheduleExpanded = false;
 
   readonly form;
+  readonly patientSearchForm;
 
   constructor(
     private readonly appointmentService: AppointmentService,
@@ -471,16 +818,26 @@ export class AppointmentsPageComponent implements OnInit {
   ) {
     const patientId = Number(route.snapshot.queryParamMap.get('patientId'));
     this.requestedPatientId = Number.isFinite(patientId) && patientId > 0 ? patientId : null;
+    this.patientSearchForm = this.formBuilder.group({
+      query: this.formBuilder.nonNullable.control('', [Validators.required, Validators.minLength(2)])
+    });
     this.form = this.formBuilder.group({
-      patientId: this.formBuilder.control<number | null>(null, Validators.required),
       scheduledAt: this.formBuilder.nonNullable.control('', Validators.required),
-      reason: this.formBuilder.nonNullable.control('', Validators.required),
-      notes: this.formBuilder.nonNullable.control('')
+      reasonChoice: this.formBuilder.nonNullable.control('', Validators.required),
+      otherReason: this.formBuilder.nonNullable.control(''),
+      notes: this.formBuilder.nonNullable.control(''),
+      reportsConditions: this.formBuilder.nonNullable.control(false),
+      reportsPastSurgery: this.formBuilder.nonNullable.control(false),
+      reportsAllergies: this.formBuilder.nonNullable.control(false),
+      reportsMedication: this.formBuilder.nonNullable.control(false),
+      requiresAssistance: this.formBuilder.nonNullable.control(false)
     });
   }
 
   ngOnInit(): void {
-    this.loadPatients();
+    if (this.requestedPatientId != null) {
+      this.loadRequestedPatient(this.requestedPatientId);
+    }
     this.loadAppointments(true);
   }
 
@@ -490,11 +847,16 @@ export class AppointmentsPageComponent implements OnInit {
       return;
     }
 
-    const payload = this.form.getRawValue();
-    if (payload.patientId == null) {
+    if (!this.selectedPatient) {
+      this.errorMessage = this.i18n.t('appointments.search.required');
       return;
     }
-    const normalizedReason = payload.reason.trim();
+    if (this.selectedPatient.status !== 'ACTIVE') {
+      this.errorMessage = this.i18n.t('appointments.search.inactiveWarning');
+      return;
+    }
+    const payload = this.form.getRawValue();
+    const normalizedReason = this.resolveSelectedReason(payload.reasonChoice, payload.otherReason);
     if (normalizedReason.length === 0) {
       this.errorMessage = this.i18n.t('common.required');
       return;
@@ -509,10 +871,10 @@ export class AppointmentsPageComponent implements OnInit {
     this.successMessage = '';
 
     this.appointmentService
-      .createAppointment(payload.patientId, {
+      .createAppointment(this.selectedPatient.id, {
         scheduledAt: this.normalizeDateTime(payload.scheduledAt),
         reason: normalizedReason,
-        notes: this.normalizeOptionalValue(payload.notes)
+        notes: this.buildAppointmentNotes(payload)
       })
       .subscribe({
         next: (appointment) => {
@@ -522,9 +884,16 @@ export class AppointmentsPageComponent implements OnInit {
           this.totalAppointments += 1;
           this.form.patchValue({
             scheduledAt: '',
-            reason: '',
-            notes: ''
+            reasonChoice: '',
+            otherReason: '',
+            notes: '',
+            reportsConditions: false,
+            reportsPastSurgery: false,
+            reportsAllergies: false,
+            reportsMedication: false,
+            requiresAssistance: false
           });
+          this.intakeExpanded = false;
           this.isCreating = false;
           this.successMessage = this.i18n.t('appointments.create.success');
         },
@@ -539,12 +908,16 @@ export class AppointmentsPageComponent implements OnInit {
     return this.deletingAppointmentIds.has(appointmentId);
   }
 
-  cancelAppointment(appointmentId: number): void {
+  async cancelAppointment(appointmentId: number): Promise<void> {
     if (this.isDeleting(appointmentId)) {
       return;
     }
 
-    const confirmed = this.confirmation.confirm('appointments.cancel.confirm');
+    const confirmed = await this.confirmation.confirm('appointments.cancel.confirm', {
+      titleKey: 'appointments.cancel.title',
+      confirmKey: 'appointments.cancel.action',
+      tone: 'danger'
+    });
     if (!confirmed) {
       return;
     }
@@ -571,34 +944,72 @@ export class AppointmentsPageComponent implements OnInit {
     return appointment.id;
   }
 
+  trackByPatientId(_index: number, patient: Patient): number {
+    return patient.id;
+  }
+
+  searchPatients(): void {
+    const query = this.patientSearchForm.controls.query.value.trim();
+    if (this.patientSearchForm.invalid || query.length < 2) {
+      this.patientSearchForm.markAllAsTouched();
+      this.errorMessage = this.i18n.t('appointments.search.minimum');
+      return;
+    }
+    this.isLoadingPatients = true;
+    this.errorMessage = '';
+    this.patientSearchPerformed = true;
+    this.patientService.getVisiblePatientPage(0, 10, query).subscribe({
+      next: (response) => {
+        this.patients = response.content;
+        this.isLoadingPatients = false;
+      },
+      error: (error: unknown) => {
+        this.patients = [];
+        this.isLoadingPatients = false;
+        this.errorMessage = this.resolveErrorMessage(error, 'appointments.search.error');
+      }
+    });
+  }
+
+  selectPatient(patient: Patient): void {
+    this.selectedPatient = patient;
+    this.form.reset({
+      scheduledAt: '',
+      reasonChoice: '',
+      otherReason: '',
+      notes: '',
+      reportsConditions: false,
+      reportsPastSurgery: false,
+      reportsAllergies: false,
+      reportsMedication: false,
+      requiresAssistance: false
+    });
+    this.errorMessage = '';
+  }
+
+  clearSelectedPatient(): void {
+    this.selectedPatient = null;
+    this.patients = [];
+    this.patientSearchPerformed = false;
+    this.patientSearchForm.controls.query.setValue('');
+  }
+
   showMoreAppointments(): void {
     if (!this.isLastPage && !this.isLoadingAppointments) {
       this.loadAppointments(false);
     }
   }
 
-  private loadPatients(): void {
+  private loadRequestedPatient(patientId: number): void {
     this.isLoadingPatients = true;
     this.errorMessage = '';
 
-    this.patientService.getVisiblePatients().subscribe({
-      next: (patients) => {
-        this.patients = patients;
-
-        const selectedPatientId = this.form.controls.patientId.value;
-        const selectedExists = selectedPatientId != null && patients.some((patient) => patient.id === selectedPatientId);
-
-        const requestedPatientExists =
-          this.requestedPatientId != null && patients.some((patient) => patient.id === this.requestedPatientId);
-        if (requestedPatientExists) {
-          this.form.controls.patientId.setValue(this.requestedPatientId);
-        } else if (!selectedExists && patients.length > 0) {
-          this.form.controls.patientId.setValue(patients[0].id);
-        }
-        if (patients.length === 0) {
-          this.form.controls.patientId.setValue(null);
-        }
-
+    this.patientService.getPatientById(patientId).subscribe({
+      next: (patient) => {
+        this.patients = [patient];
+        this.selectedPatient = patient;
+        this.patientSearchForm.controls.query.setValue(patient.patientNumber || `${patient.firstName} ${patient.lastName}`);
+        this.patientSearchPerformed = true;
         this.isLoadingPatients = false;
       },
       error: (error: unknown) => {
@@ -606,6 +1017,25 @@ export class AppointmentsPageComponent implements OnInit {
         this.errorMessage = this.resolveErrorMessage(error, 'appointments.error');
       }
     });
+  }
+
+  private resolveSelectedReason(reasonChoice: string, otherReason: string): string {
+    if (reasonChoice === 'OTHER') {
+      return otherReason.trim();
+    }
+    return reasonChoice.trim();
+  }
+
+  private buildAppointmentNotes(payload: ReturnType<typeof this.form.getRawValue>): string | null {
+    const reportedItems = this.intakeItems
+      .filter((item) => payload[item.control])
+      .map((item) => this.i18n.t(item.labelKey));
+    const freeText = payload.notes.trim();
+    if (reportedItems.length === 0) {
+      return this.normalizeOptionalValue(freeText);
+    }
+    const checklist = `${this.i18n.t('appointments.intake.notesPrefix')}: ${reportedItems.join('; ')}`;
+    return freeText ? `${checklist}\n${freeText}` : checklist;
   }
 
   private loadAppointments(reset: boolean): void {

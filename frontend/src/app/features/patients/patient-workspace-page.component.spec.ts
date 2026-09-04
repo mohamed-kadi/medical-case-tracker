@@ -9,6 +9,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { CaseService } from '../../core/services/case.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
+import { ConfirmationService } from '../../shared/confirmation.service';
 
 describe('PatientWorkspacePageComponent', () => {
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
@@ -16,6 +17,7 @@ describe('PatientWorkspacePageComponent', () => {
   let appointmentServiceSpy: jasmine.SpyObj<AppointmentService>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
+  let confirmationSpy: jasmine.SpyObj<ConfirmationService>;
 
   const activatedRouteMock = {
     snapshot: {
@@ -37,9 +39,11 @@ describe('PatientWorkspacePageComponent', () => {
     ]);
     authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    confirmationSpy = jasmine.createSpyObj<ConfirmationService>('ConfirmationService', ['confirm']);
 
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     i18nServiceSpy.t.and.callFake((key: string) => key);
+    confirmationSpy.confirm.and.returnValue(Promise.resolve(true));
 
     patientServiceSpy.getPatientById.and.returnValue(
       of({
@@ -140,7 +144,8 @@ describe('PatientWorkspacePageComponent', () => {
         { provide: PatientService, useValue: patientServiceSpy },
         { provide: CaseService, useValue: caseServiceSpy },
         { provide: AppointmentService, useValue: appointmentServiceSpy },
-        { provide: I18nService, useValue: i18nServiceSpy }
+        { provide: I18nService, useValue: i18nServiceSpy },
+        { provide: ConfirmationService, useValue: confirmationSpy }
       ]
     }).compileComponents();
   });
@@ -187,14 +192,12 @@ describe('PatientWorkspacePageComponent', () => {
     expect(printWindow.print).toHaveBeenCalled();
   });
 
-  it('cancels appointment and preserves it in the patient history', () => {
-    spyOn(window, 'confirm').and.returnValue(true);
-
+  it('cancels appointment and preserves it in the patient history', async () => {
     const fixture = TestBed.createComponent(PatientWorkspacePageComponent);
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    component.cancelAppointment(50);
+    await component.cancelAppointment(50);
 
     expect(appointmentServiceSpy.updateAppointmentStatus).toHaveBeenCalledWith(50, 'CANCELLED');
     expect(component.appointments.length).toBe(1);

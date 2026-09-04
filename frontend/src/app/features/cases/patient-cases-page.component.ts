@@ -744,8 +744,13 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  deleteImage(imageId: number): void {
-    if (!this.confirmation.confirm('cases.images.deleteConfirm')) {
+  async deleteImage(imageId: number): Promise<void> {
+    const confirmed = await this.confirmation.confirm('cases.images.deleteConfirm', {
+      titleKey: 'cases.images.deleteTitle',
+      confirmKey: 'cases.images.delete',
+      tone: 'danger'
+    });
+    if (!confirmed) {
       return;
     }
     this.imageErrorMessage = '';
