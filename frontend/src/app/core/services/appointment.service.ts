@@ -34,6 +34,10 @@ export class AppointmentService {
     return this.http.get<AppointmentPage>(`${this.apiBaseUrl}/api/appointments/upcoming/page`, { params });
   }
 
+  getCheckedInAppointments(): Observable<Appointment[]> {
+    return this.http.get<Appointment[]>(`${this.apiBaseUrl}/api/appointments/checked-in`);
+  }
+
   createAppointment(patientId: number, request: CreateAppointmentRequest): Observable<Appointment> {
     return this.http.post<Appointment>(`${this.apiBaseUrl}/api/appointments/patients/${patientId}`, request);
   }

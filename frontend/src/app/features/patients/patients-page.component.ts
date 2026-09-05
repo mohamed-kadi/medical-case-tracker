@@ -8,13 +8,17 @@ import { Patient } from '../../core/models/patient.model';
 import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
+import { Appointment } from '../../core/models/appointment.model';
+import { AppointmentService } from '../../core/services/appointment.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
+import { AppointmentReasonPipe } from '../../shared/appointment-reason.pipe';
 
 type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 
 @Component({
   selector: 'app-patients-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, StatusLabelPipe],
+  imports: [CommonModule, RouterLink, StatusLabelPipe, LocalizedDatePipe, AppointmentReasonPipe],
   template: `
     <section class="patients-shell">
       <div class="page-tools">
@@ -22,6 +26,10 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       </div>
 
       <section class="overview">
+        <article class="overview-card waiting-metric" *ngIf="isDoctorRole">
+          <span>{{ i18n.t('patients.waiting.metric') }}</span>
+          <strong>{{ checkedInAppointments.length }}</strong>
+        </article>
         <article class="overview-card">
           <span>{{ i18n.t('patients.overview.total') }}</span>
           <strong>{{ totalPatients }}</strong>
@@ -36,10 +44,68 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
         </article>
       </section>
 
+      <section class="patients-panel waiting-panel" *ngIf="isDoctorRole">
+        <header class="panel-header">
+          <div>
+            <span class="queue-kicker">{{ i18n.t('patients.waiting.kicker') }}</span>
+            <h2>{{ i18n.t('patients.waiting.title') }}</h2>
+            <p>{{ i18n.t('patients.waiting.description') }}</p>
+          </div>
+          <button type="button" class="secondary" (click)="loadWaitingQueue()" [disabled]="isLoadingWaitingQueue">
+            {{ i18n.t('patients.waiting.refresh') }}
+          </button>
+        </header>
+
+        <div class="waiting-list" *ngIf="checkedInAppointments.length > 0; else noWaitingPatients">
+          <article
+            class="waiting-item"
+            *ngFor="let appointment of checkedInAppointments; trackBy: trackByAppointmentId"
+          >
+            <span class="waiting-pulse" aria-hidden="true"></span>
+            <span>
+              <a [routerLink]="appointment.patientId ? ['/patients', appointment.patientId] : ['/patients']">
+                <strong>{{ appointment.patientName || i18n.t('appointments.patient.unavailable') }}</strong>
+              </a>
+              <small>{{ appointment.patientNumber || '-' }} · {{ appointment.reason | appointmentReason }}</small>
+            </span>
+            <span class="waiting-actions">
+              <time>{{ appointment.scheduledAt | localizedDate: 'time' }}</time>
+              <button
+                type="button"
+                (click)="completeAppointment(appointment.id)"
+                [disabled]="isProcessingAppointment(appointment.id)"
+              >
+                {{ isProcessingAppointment(appointment.id) ? i18n.t('patients.waiting.completing') : i18n.t('patients.waiting.complete') }}
+              </button>
+            </span>
+          </article>
+        </div>
+        <ng-template #noWaitingPatients>
+          <p class="empty-state">
+            {{ isLoadingWaitingQueue ? i18n.t('patients.waiting.loading') : i18n.t('patients.waiting.empty') }}
+          </p>
+        </ng-template>
+      </section>
+
       <section class="patients-panel directory-panel">
         <header class="panel-header">
-          <h2>{{ i18n.t('patients.directory.title') }}</h2>
+          <div>
+            <h2>{{ i18n.t('patients.directory.title') }}</h2>
+            <p *ngIf="isDoctorRole">{{ i18n.t('patients.directory.doctorHelp') }}</p>
+          </div>
+          <button
+            *ngIf="isDoctorRole"
+            type="button"
+            class="directory-toggle"
+            (click)="directoryExpanded = !directoryExpanded"
+            [attr.aria-expanded]="directoryExpanded"
+            aria-controls="patient-directory-content"
+          >
+            {{ directoryExpanded ? i18n.t('patients.directory.collapse') : i18n.t('patients.directory.expand') }}
+          </button>
         </header>
+
+        <div id="patient-directory-content" *ngIf="directoryExpanded">
 
         <div class="toolbar">
           <input
@@ -129,6 +195,7 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
         </button>
 
         <p *ngIf="!isLoading && patients.length === 0">{{ i18n.t('patients.empty') }}</p>
+        </div>
       </section>
     </section>
   `,
@@ -191,6 +258,10 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       line-height: 1.1;
     }
 
+    .waiting-metric {
+      border-color: color-mix(in srgb, var(--success) 45%, var(--surface-strong));
+    }
+
     .patients-panel {
       border: 1px solid var(--surface-strong);
       background: var(--surface-elevated);
@@ -206,6 +277,91 @@ type PatientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 0.65rem;
+    }
+
+    .panel-header p,
+    .empty-state {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .queue-kicker {
+      color: var(--success);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .waiting-panel {
+      border-color: color-mix(in srgb, var(--success) 40%, var(--surface-strong));
+      background:
+        radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--success) 12%, transparent), transparent 18rem),
+        var(--surface-elevated);
+    }
+
+    .waiting-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+      gap: 0.55rem;
+    }
+
+    .waiting-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.7rem;
+      border: 1px solid color-mix(in srgb, var(--success) 35%, var(--surface-strong));
+      border-radius: 0.7rem;
+      background: var(--surface);
+      color: var(--ink);
+    }
+
+    .waiting-item > span:nth-child(2) {
+      display: grid;
+      gap: 0.12rem;
+    }
+
+    .waiting-item a {
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .waiting-item a:hover {
+      text-decoration: underline;
+    }
+
+    .waiting-actions {
+      display: grid;
+      justify-items: end;
+      gap: 0.35rem;
+    }
+
+    .waiting-actions button {
+      border-color: color-mix(in srgb, var(--success) 45%, var(--surface-strong));
+      background: color-mix(in srgb, var(--success) 14%, var(--surface));
+      white-space: nowrap;
+    }
+
+    .waiting-item small,
+    .waiting-item time {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .waiting-pulse {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--success) 18%, transparent);
+    }
+
+    .directory-toggle {
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+      white-space: nowrap;
     }
 
     h2 {
@@ -388,7 +544,10 @@ export class PatientsPageComponent implements OnInit, OnDestroy {
   private readonly pageSize = 25;
   private searchTimer: number | null = null;
   private patientRequest: Subscription | null = null;
+  private waitingQueueRequest: Subscription | null = null;
+  private readonly processingAppointmentIds = new Set<number>();
   patients: Patient[] = [];
+  checkedInAppointments: Appointment[] = [];
   searchTerm = '';
   statusFilter: PatientStatusFilter = 'ALL';
   isLoading = false;
@@ -397,15 +556,22 @@ export class PatientsPageComponent implements OnInit, OnDestroy {
   totalMatchingPatients = 0;
   currentPage = 0;
   isLastPage = true;
+  isLoadingWaitingQueue = false;
+  directoryExpanded = true;
 
   constructor(
     private readonly authService: AuthService,
     private readonly patientService: PatientService,
+    private readonly appointmentService: AppointmentService,
     public readonly i18n: I18nService
   ) {}
 
   ngOnInit(): void {
+    this.directoryExpanded = !this.isDoctorRole;
     this.loadPatients(true);
+    if (this.isDoctorRole) {
+      this.loadWaitingQueue();
+    }
   }
 
   get filteredPatients(): Patient[] {
@@ -421,6 +587,7 @@ export class PatientsPageComponent implements OnInit, OnDestroy {
       window.clearTimeout(this.searchTimer);
     }
     this.patientRequest?.unsubscribe();
+    this.waitingQueueRequest?.unsubscribe();
   }
 
   get isDoctorRole(): boolean {
@@ -429,6 +596,49 @@ export class PatientsPageComponent implements OnInit, OnDestroy {
 
   trackByPatientId(_: number, patient: Patient): number {
     return patient.id;
+  }
+
+  trackByAppointmentId(_: number, appointment: Appointment): number {
+    return appointment.id;
+  }
+
+  loadWaitingQueue(): void {
+    if (!this.isDoctorRole || this.isLoadingWaitingQueue) {
+      return;
+    }
+    this.isLoadingWaitingQueue = true;
+    this.waitingQueueRequest?.unsubscribe();
+    this.waitingQueueRequest = this.appointmentService.getCheckedInAppointments().subscribe({
+      next: (appointments) => {
+        this.checkedInAppointments = appointments;
+        this.isLoadingWaitingQueue = false;
+      },
+      error: () => {
+        this.isLoadingWaitingQueue = false;
+      }
+    });
+  }
+
+  isProcessingAppointment(appointmentId: number): boolean {
+    return this.processingAppointmentIds.has(appointmentId);
+  }
+
+  completeAppointment(appointmentId: number): void {
+    if (this.isProcessingAppointment(appointmentId)) {
+      return;
+    }
+    this.processingAppointmentIds.add(appointmentId);
+    this.appointmentService.updateAppointmentStatus(appointmentId, 'COMPLETED').subscribe({
+      next: () => {
+        this.checkedInAppointments = this.checkedInAppointments.filter(
+          (appointment) => appointment.id !== appointmentId
+        );
+        this.processingAppointmentIds.delete(appointmentId);
+      },
+      error: () => {
+        this.processingAppointmentIds.delete(appointmentId);
+      }
+    });
   }
 
   setStatusFilter(filter: PatientStatusFilter): void {

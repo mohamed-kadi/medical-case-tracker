@@ -7,6 +7,7 @@ import { AppointmentService } from '../../core/services/appointment.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
 import { ConfirmationService } from '../../shared/confirmation.service';
+import { AuthService } from '../../core/services/auth.service';
 import { AppointmentsPageComponent } from './appointments-page.component';
 
 describe('AppointmentsPageComponent', () => {
@@ -14,6 +15,7 @@ describe('AppointmentsPageComponent', () => {
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
   let confirmationSpy: jasmine.SpyObj<ConfirmationService>;
+  let authServiceSpy: jasmine.SpyObj<AuthService>;
   const patient = {
     id: 10,
     firstName: 'John',
@@ -36,6 +38,8 @@ describe('AppointmentsPageComponent', () => {
     ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
     confirmationSpy = jasmine.createSpyObj<ConfirmationService>('ConfirmationService', ['confirm']);
+    authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
+    authServiceSpy.getCurrentRole.and.returnValue('FRONT_DESK');
 
     appointmentServiceSpy.getUpcomingAppointmentPage.and.returnValue(
       of({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0, last: true })
@@ -72,6 +76,7 @@ describe('AppointmentsPageComponent', () => {
         { provide: AppointmentService, useValue: appointmentServiceSpy },
         { provide: PatientService, useValue: patientServiceSpy },
         { provide: ConfirmationService, useValue: confirmationSpy },
+        { provide: AuthService, useValue: authServiceSpy },
         { provide: I18nService, useValue: i18nServiceSpy }
       ]
     }).compileComponents();
@@ -258,6 +263,37 @@ describe('AppointmentsPageComponent', () => {
     await component.cancelAppointment(81);
 
     expect(appointmentServiceSpy.updateAppointmentStatus).not.toHaveBeenCalled();
+  });
+
+  it('lets front desk check in a scheduled patient for the doctor queue', () => {
+    appointmentServiceSpy.updateAppointmentStatus.and.returnValue(of({
+      id: 81,
+      patientId: 10,
+      patientName: 'John Doe',
+      scheduledAt: '2030-01-02T14:00:00',
+      reason: 'FOLLOW_UP',
+      notes: null,
+      status: 'CHECKED_IN'
+    }));
+    const fixture = TestBed.createComponent(AppointmentsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.appointments = [{
+      id: 81,
+      patientId: 10,
+      patientName: 'John Doe',
+      scheduledAt: '2030-01-02T14:00:00',
+      reason: 'FOLLOW_UP',
+      notes: null,
+      status: 'SCHEDULED'
+    }];
+    component.totalAppointments = 1;
+
+    component.checkInAppointment(81);
+
+    expect(appointmentServiceSpy.updateAppointmentStatus).toHaveBeenCalledWith(81, 'CHECKED_IN');
+    expect(component.appointments).toEqual([]);
+    expect(component.successMessage).toBe('appointments.checkIn.success');
   });
 
   it('adds patient-reported checklist items to optional notes', () => {

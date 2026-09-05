@@ -9,6 +9,7 @@ import { Patient } from '../../core/models/patient.model';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { PatientService } from '../../core/services/patient.service';
+import { AuthService } from '../../core/services/auth.service';
 import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 import { ConfirmationService } from '../../shared/confirmation.service';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
@@ -233,6 +234,15 @@ type IntakeControlName = 'reportsConditions' | 'reportsPastSurgery' | 'reportsAl
                 <td [attr.data-label]="i18n.t('appointments.headers.status')">{{ appointment.status | statusLabel: 'appointments' }}</td>
                 <td [attr.data-label]="i18n.t('appointments.headers.notes')">{{ appointment.notes || '-' }}</td>
                 <td [attr.data-label]="i18n.t('appointments.headers.actions')">
+                  <button
+                    *ngIf="appointment.status === 'SCHEDULED' && isFrontDesk"
+                    type="button"
+                    class="check-in"
+                    (click)="checkInAppointment(appointment.id)"
+                    [disabled]="isDeleting(appointment.id)"
+                  >
+                    {{ isDeleting(appointment.id) ? i18n.t('appointments.checkIn.saving') : i18n.t('appointments.checkIn.action') }}
+                  </button>
                   <button
                     *ngIf="appointment.status === 'SCHEDULED'"
                     type="button"
@@ -615,6 +625,13 @@ type IntakeControlName = 'reportsConditions' | 'reportsPastSurgery' | 'reportsAl
       background: color-mix(in srgb, var(--danger) 13%, var(--surface));
     }
 
+    button.check-in {
+      margin-right: 0.35rem;
+      border-color: color-mix(in srgb, var(--success) 50%, var(--surface-strong));
+      background: color-mix(in srgb, var(--success) 14%, var(--surface));
+      color: var(--ink);
+    }
+
     button:disabled {
       opacity: 0.7;
       cursor: wait;
@@ -811,6 +828,7 @@ export class AppointmentsPageComponent implements OnInit {
   constructor(
     private readonly appointmentService: AppointmentService,
     private readonly patientService: PatientService,
+    private readonly authService: AuthService,
     private readonly formBuilder: FormBuilder,
     private readonly confirmation: ConfirmationService,
     route: ActivatedRoute,
@@ -839,6 +857,10 @@ export class AppointmentsPageComponent implements OnInit {
       this.loadRequestedPatient(this.requestedPatientId);
     }
     this.loadAppointments(true);
+  }
+
+  get isFrontDesk(): boolean {
+    return this.authService.getCurrentRole() === 'FRONT_DESK';
   }
 
   createAppointment(): void {
@@ -906,6 +928,27 @@ export class AppointmentsPageComponent implements OnInit {
 
   isDeleting(appointmentId: number): boolean {
     return this.deletingAppointmentIds.has(appointmentId);
+  }
+
+  checkInAppointment(appointmentId: number): void {
+    if (this.isDeleting(appointmentId)) {
+      return;
+    }
+    this.deletingAppointmentIds.add(appointmentId);
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.appointmentService.updateAppointmentStatus(appointmentId, 'CHECKED_IN').subscribe({
+      next: (updatedAppointment) => {
+        this.appointments = this.appointments.filter((appointment) => appointment.id !== updatedAppointment.id);
+        this.totalAppointments = Math.max(0, this.totalAppointments - 1);
+        this.deletingAppointmentIds.delete(appointmentId);
+        this.successMessage = this.i18n.t('appointments.checkIn.success');
+      },
+      error: (error: unknown) => {
+        this.deletingAppointmentIds.delete(appointmentId);
+        this.errorMessage = this.resolveErrorMessage(error, 'appointments.checkIn.error');
+      }
+    });
   }
 
   async cancelAppointment(appointmentId: number): Promise<void> {

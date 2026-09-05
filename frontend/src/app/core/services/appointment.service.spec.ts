@@ -51,6 +51,24 @@ describe('AppointmentService', () => {
     request.flush({ content: [], page: 1, size: 25, totalElements: 30, totalPages: 2, last: true });
   });
 
+  it('should load checked-in appointments for the current role', () => {
+    service.getCheckedInAppointments().subscribe((appointments) => {
+      expect(appointments[0].status).toBe('CHECKED_IN');
+    });
+
+    const request = httpMock.expectOne('http://localhost:8080/api/appointments/checked-in');
+    expect(request.request.method).toBe('GET');
+    request.flush([
+      {
+        id: 6,
+        scheduledAt: '2030-01-01T10:30:00',
+        reason: 'Follow-up',
+        notes: null,
+        status: 'CHECKED_IN'
+      }
+    ]);
+  });
+
   it('should pass from filter for upcoming appointments', () => {
     service.getUpcomingAppointments('2030-01-01T00:00:00').subscribe();
 

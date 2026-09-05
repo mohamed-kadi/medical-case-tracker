@@ -6,18 +6,25 @@ import { PatientsPageComponent } from './patients-page.component';
 import { AuthService } from '../../core/services/auth.service';
 import { PatientService } from '../../core/services/patient.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { AppointmentService } from '../../core/services/appointment.service';
 
 describe('PatientsPageComponent', () => {
   let authServiceSpy: jasmine.SpyObj<AuthService>;
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
+  let appointmentServiceSpy: jasmine.SpyObj<AppointmentService>;
 
   beforeEach(async () => {
     authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentRole']);
     patientServiceSpy = jasmine.createSpyObj<PatientService>('PatientService', ['getVisiblePatientPage']);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
+    appointmentServiceSpy = jasmine.createSpyObj<AppointmentService>('AppointmentService', [
+      'getCheckedInAppointments',
+      'updateAppointmentStatus'
+    ]);
     authServiceSpy.getCurrentRole.and.returnValue('DOCTOR');
     i18nServiceSpy.t.and.callFake((key: string) => key);
+    appointmentServiceSpy.getCheckedInAppointments.and.returnValue(of([]));
 
     patientServiceSpy.getVisiblePatientPage.and.returnValue(
       of({ content: [], page: 0, size: 25, totalElements: 0, totalPages: 0, last: true })
@@ -29,6 +36,7 @@ describe('PatientsPageComponent', () => {
         provideRouter([]),
         { provide: AuthService, useValue: authServiceSpy },
         { provide: PatientService, useValue: patientServiceSpy },
+        { provide: AppointmentService, useValue: appointmentServiceSpy },
         { provide: I18nService, useValue: i18nServiceSpy }
       ]
     }).compileComponents();
@@ -57,6 +65,40 @@ describe('PatientsPageComponent', () => {
     expect(patientServiceSpy.getVisiblePatientPage).toHaveBeenCalledWith(0, 25, '', undefined);
     expect(component.patients.length).toBe(1);
     expect(component.patients[0].id).toBe(20);
+    expect(component.directoryExpanded).toBeFalse();
+    expect(appointmentServiceSpy.getCheckedInAppointments).toHaveBeenCalled();
+  });
+
+  it('shows checked-in patients to their assigned doctor and completes the visit', () => {
+    appointmentServiceSpy.getCheckedInAppointments.and.returnValue(of([{
+      id: 91,
+      patientId: 20,
+      patientName: 'John Doe',
+      patientNumber: 'MT-2026-000020',
+      scheduledAt: '2030-01-01T09:30:00',
+      reason: 'FOLLOW_UP',
+      notes: null,
+      status: 'CHECKED_IN'
+    }]));
+    appointmentServiceSpy.updateAppointmentStatus.and.returnValue(of({
+      id: 91,
+      patientId: 20,
+      patientName: 'John Doe',
+      patientNumber: 'MT-2026-000020',
+      scheduledAt: '2030-01-01T09:30:00',
+      reason: 'FOLLOW_UP',
+      notes: null,
+      status: 'COMPLETED'
+    }));
+
+    const fixture = TestBed.createComponent(PatientsPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(fixture.nativeElement.textContent).toContain('John Doe');
+    component.completeAppointment(91);
+    expect(appointmentServiceSpy.updateAppointmentStatus).toHaveBeenCalledWith(91, 'COMPLETED');
+    expect(component.checkedInAppointments).toEqual([]);
   });
 
   it('sends debounced search terms to the server', fakeAsync(() => {
