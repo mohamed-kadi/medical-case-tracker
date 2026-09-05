@@ -102,7 +102,7 @@ Environment source policy:
   - `AssignmentAccessIntegrationTest` (`@SpringBootTest`) for doctor/staff patient, case, and appointment visibility boundaries
   - `LocalizationBundleConsistencyTest` for `en/fr` message-key synchronization
   - `PatientServiceImplTest` for service behavior, conflict paths, role-scoped assignment/search/pagination logic, and patient mutation audit emission
-  - `AppointmentServiceImplTest` for scheduling conflicts, bounded and paginated role-scoped upcoming filters, and appointment mutation audit emission
+  - `AppointmentServiceImplTest` for scheduling conflicts, role-scoped upcoming/checked-in queues, valid visit transitions, and appointment mutation audit emission
   - `AuditEventServiceImplTest` for actor resolution and event persistence behavior
   - `MedicalCaseServiceImplTest` for case mutation audit event emission
   - `MedicalImageServiceImplTest` for image upload/delete audit event emission
@@ -110,13 +110,13 @@ Environment source policy:
   - `auth.service.spec.ts` for login/register/token behavior
   - `admin-user.service.spec.ts` for admin internal-user provisioning API calls
   - `patient.service.spec.ts` for paginated patient search/list, create/update, and assignment API calls
-  - `appointment.service.spec.ts` for bounded and paginated upcoming appointment API calls
+  - `appointment.service.spec.ts` for bounded/paginated upcoming and checked-in appointment API calls
   - `case.service.spec.ts` for patient case create/update/status API calls
   - `image.service.spec.ts` for case image list/upload/delete API calls
   - `admin-users-page.component.spec.ts` for admin provisioning form and internal-user directory/search behavior
   - `admin-audit-page.component.spec.ts` for admin audit filter and loading/error behavior
   - `dashboard-page.component.spec.ts` for patient visibility, role-specific actions, and upcoming appointments rendering
-  - `patients-page.component.spec.ts` for server-backed patient directory search/filter/pagination behavior
+  - `patients-page.component.spec.ts` for server-backed patient directory behavior and the doctor's checked-in waiting queue
   - `patient-form-page.component.spec.ts` for patient create/edit routes and active-status change confirmation
   - `patient-cases-page.component.spec.ts` for case workspace create/edit/image upload UI behavior
   - `guest.guard.spec.ts`, `internal.guard.spec.ts`, `clinical.guard.spec.ts`, and `admin.guard.spec.ts` for role-based routing behavior

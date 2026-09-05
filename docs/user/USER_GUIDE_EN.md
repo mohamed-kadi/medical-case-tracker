@@ -21,18 +21,20 @@ Public registration creates a patient portal login only. It does not create an o
 7. If the caller volunteers relevant information, open the optional patient-reported checklist. Record only the flags requiring follow-up and short scheduling notes; detailed clinical history belongs in the doctor workspace.
 8. The upcoming schedule is collapsed by default. Expand it when needed, or use the dashboard calendar. Colored dates contain appointments; hover, focus, or select a date to see patient details.
 9. Cancelling an appointment opens an in-app confirmation dialog and retains the appointment as cancelled history.
-10. Use **Patient accounts** only after checking the patient number/card and identity. Portal data remains hidden until the link is verified.
+10. When the patient arrives, expand the upcoming schedule and select **Check in**. The visit leaves the upcoming list and enters the assigned doctor's waiting queue.
+11. Use **Patient accounts** only after checking the patient number/card and identity. Portal data remains hidden until the link is verified.
 
 Front desk users cannot see medical history, cases, images, or clinical notes.
 
 ## Doctor Workflow
 
-1. Use the dashboard or patient directory to open an assigned patient.
-2. Review or update the patient record and medical history.
-3. Open **Cases** from the patient workspace to create or update a medical case.
-4. Upload, categorize, preview, or download case images.
-5. Confirm carefully before deleting an image; deleted image records cannot be opened afterward.
-6. Schedule and manage appointments from the dedicated appointments page.
+1. Open **Patients** to see checked-in assigned patients first. Refresh the waiting queue when needed.
+2. Select a waiting patient's identity to open the workspace. The full patient directory is collapsed initially and can be expanded when needed.
+3. Review or update the patient record and medical history.
+4. Open **Cases** from the patient workspace to create or update a medical case.
+5. Upload, categorize, preview, or download case images.
+6. Confirm carefully before deleting an image; deleted image records cannot be opened afterward.
+7. Select **Mark complete** in the waiting queue when the visit is finished. Schedule and manage future appointments from the dedicated appointments page.
 
 ## Administrator Workflow
 

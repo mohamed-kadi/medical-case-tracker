@@ -21,18 +21,20 @@ L'inscription publique crée uniquement un compte pour le portail patient. Elle 
 7. Si l'appelant fournit spontanément des informations pertinentes, ouvrez la liste facultative déclarée par le patient. Notez seulement les indicateurs nécessitant un suivi et de courtes notes de planification ; l'historique clinique détaillé appartient à l'espace médecin.
 8. La liste des rendez-vous à venir est repliée par défaut. Ouvrez-la si nécessaire ou utilisez le calendrier du tableau de bord. Les dates colorées contiennent des rendez-vous ; survolez, ciblez au clavier ou sélectionnez une date pour voir les patients.
 9. L'annulation ouvre une boîte de confirmation intégrée et conserve le rendez-vous dans l'historique avec le statut annulé.
-10. Utilisez **Comptes patients** seulement après vérification de la carte, du numéro et de l'identité. Les données du portail restent masquées tant que le lien n'est pas vérifié.
+10. À l'arrivée du patient, ouvrez la liste à venir puis sélectionnez **Enregistrer l'arrivée**. Le rendez-vous quitte cette liste et rejoint la file d'attente du médecin assigné.
+11. Utilisez **Comptes patients** seulement après vérification de la carte, du numéro et de l'identité. Les données du portail restent masquées tant que le lien n'est pas vérifié.
 
 L'accueil ne peut pas consulter les antécédents médicaux, les cas, les images ni les notes cliniques.
 
 ## Workflow du médecin
 
-1. Ouvrez un patient assigné depuis le tableau de bord ou l'annuaire.
-2. Consultez ou mettez à jour le dossier et les antécédents médicaux.
-3. Ouvrez **Cas** depuis l'espace patient pour créer ou modifier un cas médical.
-4. Chargez, catégorisez, prévisualisez ou téléchargez les images du cas.
-5. Vérifiez attentivement avant de supprimer une image ; une image supprimée ne peut plus être ouverte.
-6. Planifiez et gérez les rendez-vous depuis la page dédiée.
+1. Ouvrez **Patients** pour voir d'abord les patients assignés déjà arrivés. Actualisez la file d'attente si nécessaire.
+2. Sélectionnez l'identité d'un patient en attente pour ouvrir son espace. L'annuaire complet est d'abord replié et peut être développé au besoin.
+3. Consultez ou mettez à jour le dossier et les antécédents médicaux.
+4. Ouvrez **Cas** depuis l'espace patient pour créer ou modifier un cas médical.
+5. Chargez, catégorisez, prévisualisez ou téléchargez les images du cas.
+6. Vérifiez attentivement avant de supprimer une image ; une image supprimée ne peut plus être ouverte.
+7. Sélectionnez **Terminer la consultation** dans la file d'attente à la fin de la visite. Planifiez et gérez les futurs rendez-vous depuis la page dédiée.
 
 ## Workflow de l'administrateur
 

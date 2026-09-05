@@ -95,8 +95,9 @@ Target contract (future phase):
 
 - Patient directory queries use `GET /api/patients/page` for role-scoped search, status filtering, and bounded pagination.
 - Full upcoming schedules use `GET /api/appointments/upcoming/page`; the shell calendar uses a bounded `from`/`to` request for the visible month.
+- Front desk changes an arrival to `CHECKED_IN`; the doctor Patients page reads the role-scoped `GET /api/appointments/checked-in` queue and completes the visit there.
 - Appointment DTOs carry patient identity (`patientId`, patient number, and display name) to avoid client-side N+1 lookups.
-- Appointment create/reschedule operations reject past times and exact scheduled-slot conflicts for the patient or assigned doctor.
+- Appointment create/reschedule operations reject past times and exact scheduled/checked-in slot conflicts for the patient or assigned doctor.
 - The patient workspace summarizes appointment history but delegates appointment creation to `/appointments?patientId=...`.
 - Normal UI removal changes appointment status to `CANCELLED`; the delete endpoint remains an explicit API operation.
 - Expired API sessions are handled centrally by the auth interceptor and redirected to sign-in with an expiry reason.

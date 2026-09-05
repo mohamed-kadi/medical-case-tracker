@@ -55,6 +55,7 @@ Migration files:
 
 - `src/main/resources/db/migration/V1__create_current_schema.sql`
 - `src/main/resources/db/migration/V2__adopt_existing_hibernate_schema.sql`
+- `src/main/resources/db/migration/V3__add_checked_in_appointment_status.sql`
 
 Runtime behavior:
 
@@ -141,6 +142,7 @@ Do not mix these paths:
 - `GET /api/appointments/patients/{patientId}`: list appointments for a patient.
 - `GET /api/appointments/upcoming?from=...&to=...`: list scheduled appointments filtered by role assignment and an optional bounded date range.
 - `GET /api/appointments/upcoming/page?page=0&size=25&from=...`: paginated upcoming schedule.
+- `GET /api/appointments/checked-in`: list checked-in visits; doctors receive only patients assigned to them.
 - `PUT /api/appointments/{id}`: update appointment details.
 - `PATCH /api/appointments/{id}/status`: update appointment status.
 - `DELETE /api/appointments/{id}`: delete appointment.
@@ -149,8 +151,9 @@ Appointment response and validation rules:
 
 - Responses include `patientId`, `patientNumber`, and `patientName` so clients do not need one patient request per row.
 - Create and reschedule operations require a future time.
-- A scheduled patient cannot occupy the same exact slot twice.
-- Patients assigned to the same doctor cannot occupy the same exact doctor slot.
+- A scheduled or checked-in patient cannot occupy the same exact slot twice.
+- Scheduled or checked-in patients assigned to the same doctor cannot occupy the same exact doctor slot.
+- The supported lifecycle is `SCHEDULED` → `CHECKED_IN` → `COMPLETED`; cancellation and no-show remain available where appropriate.
 - The frontend uses status `CANCELLED` for normal cancellation so appointment history is retained.
 
 ## Patient Portal API

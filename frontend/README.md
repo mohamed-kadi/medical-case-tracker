@@ -6,9 +6,9 @@ Angular frontend for Medical Case Tracker.
 
 - Public login and patient-account registration
 - Role-specific dashboards for admin, doctor, and front desk users
-- Searchable, paginated patient directory with dedicated create/edit pages
+- Searchable, paginated patient directory with dedicated create/edit pages; the doctor view prioritizes a checked-in waiting queue and keeps the directory collapsed initially
 - Patient workspace with printable card, history, appointment summary, and case summary
-- Search-first appointment scheduler with patient deep links, standard reason choices, optional patient-reported intake checklist, and a collapsible paginated schedule
+- Search-first appointment scheduler with patient deep links, standard reason choices, optional patient-reported intake checklist, front-desk check-in, and a collapsible paginated schedule
 - Interactive upcoming-appointment calendar with colored dates and patient details
 - Doctor-only case and medical-image workspace
 - Admin team, assignment, audit, and backup/restore pages

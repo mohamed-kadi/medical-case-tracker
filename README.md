@@ -7,7 +7,7 @@ Medical Case Tracker is a bilingual clinic operations application for patient in
 - Role-based workspaces for `ADMIN`, `DOCTOR`, `FRONT_DESK`, and `PATIENT`
 - Patient directory with server-side search, status filtering, and pagination
 - Patient registration, printable patient cards, assignments, and lifecycle management
-- Appointment scheduling with patient identity, conflict checks, paginated lists, and an interactive calendar
+- Appointment scheduling with patient identity, conflict checks, front-desk check-in, a doctor waiting queue, paginated lists, and an interactive calendar
 - Doctor-only medical cases and protected image upload, preview, download, and deletion
 - Verified patient-account linking and a privacy-limited patient portal
 - Admin user provisioning, audit viewer, assignments, backup, and restore
@@ -112,7 +112,7 @@ CI runs the backend and frontend checks defined in `.github/workflows/ci.yml`.
 | Route | Purpose | Roles |
 | --- | --- | --- |
 | `/dashboard` | Role-specific operational overview | Internal roles |
-| `/patients` | Searchable patient directory | Internal roles |
+| `/patients` | Searchable patient directory and doctor waiting queue | Internal roles |
 | `/patients/new` | Patient registration | Doctor, front desk |
 | `/patients/:id` | Patient card, history, appointments, and case summary | Authorized internal roles |
 | `/patients/:id/edit` | Patient editing and status management | Doctor, front desk |
@@ -129,12 +129,12 @@ CI runs the backend and frontend checks defined in `.github/workflows/ci.yml`.
 
 - Authentication: `/api/auth/**`
 - Patients: `/api/patients/**`, including `/api/patients/page`
-- Appointments: `/api/appointments/**`, including bounded `/upcoming` and paginated `/upcoming/page`
+- Appointments: `/api/appointments/**`, including bounded `/upcoming`, paginated `/upcoming/page`, and role-scoped `/checked-in`
 - Cases and images: `/api/cases/**`, `/api/images/**`
 - Patient portal and account linking: `/api/patient-portal/**`, `/api/patient-account-links/**`
 - Administration: `/api/admin/**`
 
-Appointment responses include patient ID, patient number, and patient name. New or rescheduled appointments must be in the future and cannot duplicate a scheduled slot for the patient or assigned doctor.
+Appointment responses include patient ID, patient number, and patient name. New or rescheduled appointments must be in the future and cannot duplicate a scheduled or checked-in slot for the patient or assigned doctor.
 
 ## Data and Security Notes
 
