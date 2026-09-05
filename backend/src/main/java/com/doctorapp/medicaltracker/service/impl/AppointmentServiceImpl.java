@@ -33,6 +33,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     private static final String SCHEDULED_AT_REQUIRED_MESSAGE = "Scheduled time is required";
     private static final String REASON_REQUIRED_MESSAGE = "Reason is required";
     private static final String AUDIT_ENTITY_TYPE = "APPOINTMENT";
+    private static final List<AppointmentStatus> OCCUPYING_STATUSES = List.of(
+            AppointmentStatus.SCHEDULED,
+            AppointmentStatus.CHECKED_IN);
 
     private final AppointmentRepository appointmentRepository;
     private final PatientService patientService;
@@ -130,6 +133,21 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<Appointment> getCheckedInAppointments() {
+        AccessScope accessScope = getAccessScope();
+        return switch (accessScope.role()) {
+            case ADMIN_OR_SYSTEM, FRONT_DESK -> appointmentRepository
+                    .findByStatusOrderByScheduledAtAsc(AppointmentStatus.CHECKED_IN);
+            case DOCTOR -> appointmentRepository
+                    .findByStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                            AppointmentStatus.CHECKED_IN,
+                            accessScope.username());
+            case DENIED -> throw new AccessDeniedException(ACCESS_DENIED_MESSAGE);
+        };
+    }
+
+    @Override
     public Appointment updateAppointment(Long id, Appointment appointmentDetails) {
         Appointment existingAppointment = getAppointmentById(id);
         if (appointmentDetails == null) {
@@ -214,18 +232,18 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     private void assertTimeSlotAvailable(Patient patient, LocalDateTime scheduledAt, Long excludedAppointmentId) {
         boolean patientConflict = excludedAppointmentId == null
-                ? appointmentRepository.existsByPatientIdAndScheduledAtAndStatus(
-                        patient.getId(), scheduledAt, AppointmentStatus.SCHEDULED)
-                : appointmentRepository.existsByPatientIdAndScheduledAtAndStatusAndIdNot(
-                        patient.getId(), scheduledAt, AppointmentStatus.SCHEDULED, excludedAppointmentId);
+                ? appointmentRepository.existsByPatientIdAndScheduledAtAndStatusIn(
+                        patient.getId(), scheduledAt, OCCUPYING_STATUSES)
+                : appointmentRepository.existsByPatientIdAndScheduledAtAndStatusInAndIdNot(
+                        patient.getId(), scheduledAt, OCCUPYING_STATUSES, excludedAppointmentId);
 
         String doctorUsername = patient.getAssignedDoctorUsername();
         boolean doctorConflict = doctorUsername != null && !doctorUsername.isBlank()
                 && (excludedAppointmentId == null
-                        ? appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatus(
-                                doctorUsername, scheduledAt, AppointmentStatus.SCHEDULED)
-                        : appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusAndIdNot(
-                                doctorUsername, scheduledAt, AppointmentStatus.SCHEDULED, excludedAppointmentId));
+                        ? appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusIn(
+                                doctorUsername, scheduledAt, OCCUPYING_STATUSES)
+                        : appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusInAndIdNot(
+                                doctorUsername, scheduledAt, OCCUPYING_STATUSES, excludedAppointmentId));
 
         if (patientConflict || doctorConflict) {
             throw new AppointmentConflictException();
@@ -238,7 +256,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         return switch (currentStatus) {
-            case SCHEDULED -> nextStatus == AppointmentStatus.COMPLETED
+            case SCHEDULED -> nextStatus == AppointmentStatus.CHECKED_IN
+                    || nextStatus == AppointmentStatus.COMPLETED
+                    || nextStatus == AppointmentStatus.CANCELLED
+                    || nextStatus == AppointmentStatus.NO_SHOW;
+            case CHECKED_IN -> nextStatus == AppointmentStatus.SCHEDULED
+                    || nextStatus == AppointmentStatus.COMPLETED
                     || nextStatus == AppointmentStatus.CANCELLED
                     || nextStatus == AppointmentStatus.NO_SHOW;
             case COMPLETED, CANCELLED, NO_SHOW -> false;

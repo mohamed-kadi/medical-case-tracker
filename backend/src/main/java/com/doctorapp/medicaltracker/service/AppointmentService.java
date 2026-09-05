@@ -24,6 +24,8 @@ public interface AppointmentService {
 
     Page<Appointment> getUpcomingAppointmentPage(LocalDateTime fromDateTime, Pageable pageable);
 
+    List<Appointment> getCheckedInAppointments();
+
     Appointment updateAppointment(Long id, Appointment appointmentDetails);
 
     Appointment updateAppointmentStatus(Long id, AppointmentStatus status);

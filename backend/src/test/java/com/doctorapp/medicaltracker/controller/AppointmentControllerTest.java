@@ -90,6 +90,24 @@ class AppointmentControllerTest {
     }
 
     @Test
+    void getCheckedInAppointments_returnsPatientIdentity() throws Exception {
+        Appointment appointment = new Appointment();
+        appointment.setId(13L);
+        appointment.setScheduledAt(LocalDateTime.of(2026, 4, 22, 14, 30));
+        appointment.setReason("Follow-up");
+        appointment.setStatus(AppointmentStatus.CHECKED_IN);
+        appointment.setPatient(patient(5L, "MT-2026-000005", "John", "Smith"));
+        when(appointmentService.getCheckedInAppointments()).thenReturn(List.of(appointment));
+
+        mockMvc.perform(get("/api/appointments/checked-in"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(13L))
+                .andExpect(jsonPath("$[0].patientNumber").value("MT-2026-000005"))
+                .andExpect(jsonPath("$[0].patientName").value("John Smith"))
+                .andExpect(jsonPath("$[0].status").value("CHECKED_IN"));
+    }
+
+    @Test
     void createAppointment_whenSlotConflicts_returnsLocalizedErrorCode() throws Exception {
         when(appointmentService.createAppointment(org.mockito.ArgumentMatchers.eq(3L), org.mockito.ArgumentMatchers.any(Appointment.class)))
                 .thenThrow(new AppointmentConflictException());

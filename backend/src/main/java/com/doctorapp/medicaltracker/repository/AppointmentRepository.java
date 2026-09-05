@@ -1,6 +1,7 @@
 package com.doctorapp.medicaltracker.repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,26 +17,26 @@ import com.doctorapp.medicaltracker.model.AppointmentStatus;
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    boolean existsByPatientIdAndScheduledAtAndStatus(
+    boolean existsByPatientIdAndScheduledAtAndStatusIn(
             Long patientId,
             LocalDateTime scheduledAt,
-            AppointmentStatus status);
+            Collection<AppointmentStatus> statuses);
 
-    boolean existsByPatientIdAndScheduledAtAndStatusAndIdNot(
+    boolean existsByPatientIdAndScheduledAtAndStatusInAndIdNot(
             Long patientId,
             LocalDateTime scheduledAt,
-            AppointmentStatus status,
+            Collection<AppointmentStatus> statuses,
             Long excludedAppointmentId);
 
-    boolean existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatus(
+    boolean existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusIn(
             String assignedDoctorUsername,
             LocalDateTime scheduledAt,
-            AppointmentStatus status);
+            Collection<AppointmentStatus> statuses);
 
-    boolean existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusAndIdNot(
+    boolean existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusInAndIdNot(
             String assignedDoctorUsername,
             LocalDateTime scheduledAt,
-            AppointmentStatus status,
+            Collection<AppointmentStatus> statuses,
             Long excludedAppointmentId);
 
     @Override
@@ -44,6 +45,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     @EntityGraph(attributePaths = "patient")
     List<Appointment> findByPatientIdOrderByScheduledAtAsc(Long patientId);
+
+    @EntityGraph(attributePaths = "patient")
+    List<Appointment> findByStatusOrderByScheduledAtAsc(AppointmentStatus status);
+
+    @EntityGraph(attributePaths = "patient")
+    List<Appointment> findByStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+            AppointmentStatus status,
+            String assignedDoctorUsername);
 
     @EntityGraph(attributePaths = "patient")
     List<Appointment> findByPatientIdAndScheduledAtGreaterThanEqualAndStatusOrderByScheduledAtAsc(

@@ -204,8 +204,8 @@ class AppointmentServiceImplTest {
         appointment.setReason("Follow-up");
 
         when(patientService.getPatientById(9L)).thenReturn(patient);
-        when(appointmentRepository.existsByPatientIdAndScheduledAtAndStatus(
-                9L, scheduledAt, AppointmentStatus.SCHEDULED)).thenReturn(true);
+        when(appointmentRepository.existsByPatientIdAndScheduledAtAndStatusIn(
+                eq(9L), eq(scheduledAt), any())).thenReturn(true);
 
         assertThrows(AppointmentConflictException.class,
                 () -> appointmentService.createAppointment(9L, appointment));
@@ -222,8 +222,8 @@ class AppointmentServiceImplTest {
         appointment.setReason("Follow-up");
 
         when(patientService.getPatientById(9L)).thenReturn(patient);
-        when(appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatus(
-                "doctorOne", scheduledAt, AppointmentStatus.SCHEDULED)).thenReturn(true);
+        when(appointmentRepository.existsByPatientAssignedDoctorUsernameAndScheduledAtAndStatusIn(
+                eq("doctorOne"), eq(scheduledAt), any())).thenReturn(true);
 
         assertThrows(AppointmentConflictException.class,
                 () -> appointmentService.createAppointment(9L, appointment));
@@ -261,6 +261,37 @@ class AppointmentServiceImplTest {
                 eq(31L),
                 eq("APPOINTMENT_STATUS_UPDATED"),
                 contains("SCHEDULED->COMPLETED"));
+    }
+
+    @Test
+    void getCheckedInAppointments_whenDoctorAuthenticated_returnsOnlyAssignedQueue() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
+        Appointment appointment = appointmentWithPatient(32L, 4L);
+        appointment.setStatus(AppointmentStatus.CHECKED_IN);
+        when(appointmentRepository.findByStatusAndPatientAssignedDoctorUsernameOrderByScheduledAtAsc(
+                AppointmentStatus.CHECKED_IN, "doctorOne")).thenReturn(List.of(appointment));
+
+        List<Appointment> result = appointmentService.getCheckedInAppointments();
+
+        assertEquals(List.of(appointment), result);
+    }
+
+    @Test
+    void updateAppointmentStatus_supportsCheckInThenCompletion() {
+        Appointment appointment = appointmentWithPatient(33L, 4L);
+        when(appointmentRepository.findById(33L)).thenReturn(Optional.of(appointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Appointment checkedIn = appointmentService.updateAppointmentStatus(33L, AppointmentStatus.CHECKED_IN);
+        assertEquals(AppointmentStatus.CHECKED_IN, checkedIn.getStatus());
+        Appointment completed = appointmentService.updateAppointmentStatus(33L, AppointmentStatus.COMPLETED);
+
+        assertEquals(AppointmentStatus.COMPLETED, completed.getStatus());
+        verify(auditEventService).recordEvent(
+                eq("APPOINTMENT"), eq(33L), eq("APPOINTMENT_STATUS_UPDATED"), contains("SCHEDULED->CHECKED_IN"));
+        verify(auditEventService).recordEvent(
+                eq("APPOINTMENT"), eq(33L), eq("APPOINTMENT_STATUS_UPDATED"), contains("CHECKED_IN->COMPLETED"));
     }
 
     @Test

@@ -82,6 +82,13 @@ public class AppointmentController {
                         .map(AppointmentResponse::from)));
     }
 
+    @GetMapping("/checked-in")
+    public ResponseEntity<List<AppointmentResponse>> getCheckedInAppointments() {
+        return ResponseEntity.ok(appointmentService.getCheckedInAppointments().stream()
+                .map(AppointmentResponse::from)
+                .toList());
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<AppointmentResponse> updateAppointment(
             @PathVariable Long id,
