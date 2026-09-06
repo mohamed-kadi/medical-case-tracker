@@ -31,10 +31,11 @@ L'accueil ne peut pas consulter les antécédents médicaux, les cas, les images
 1. Ouvrez **Patients** pour voir d'abord les patients assignés déjà arrivés. Actualisez la file d'attente si nécessaire.
 2. Sélectionnez l'identité d'un patient en attente pour ouvrir son espace. L'annuaire complet est d'abord replié et peut être développé au besoin.
 3. Consultez ou mettez à jour le dossier et les antécédents médicaux.
-4. Ouvrez **Cas** depuis l'espace patient pour créer ou modifier un cas médical.
-5. Chargez, catégorisez, prévisualisez ou téléchargez les images du cas.
-6. Vérifiez attentivement avant de supprimer une image ; une image supprimée ne peut plus être ouverte.
-7. Sélectionnez **Terminer la consultation** dans la file d'attente à la fin de la visite. Planifiez et gérez les futurs rendez-vous depuis la page dédiée.
+4. Ouvrez **Cas** depuis l'espace patient. Vérifiez la fiche d'identité compacte, sélectionnez un cas dans la liste horizontale ou ouvrez **Nouveau cas**.
+5. Modifiez les détails et le statut ensemble avec **Enregistrer le cas** ; le changement est enregistré en une seule opération.
+6. Chargez, catégorisez, prévisualisez ou téléchargez les images du cas.
+7. Vérifiez attentivement avant de supprimer une image ; une image supprimée ne peut plus être ouverte.
+8. Sélectionnez **Terminer la consultation** dans la file d'attente à la fin de la visite. Planifiez et gérez les futurs rendez-vous depuis la page dédiée.
 
 ## Workflow de l'administrateur
 

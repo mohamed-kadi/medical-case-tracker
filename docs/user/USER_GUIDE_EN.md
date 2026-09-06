@@ -31,10 +31,11 @@ Front desk users cannot see medical history, cases, images, or clinical notes.
 1. Open **Patients** to see checked-in assigned patients first. Refresh the waiting queue when needed.
 2. Select a waiting patient's identity to open the workspace. The full patient directory is collapsed initially and can be expanded when needed.
 3. Review or update the patient record and medical history.
-4. Open **Cases** from the patient workspace to create or update a medical case.
-5. Upload, categorize, preview, or download case images.
-6. Confirm carefully before deleting an image; deleted image records cannot be opened afterward.
-7. Select **Mark complete** in the waiting queue when the visit is finished. Schedule and manage future appointments from the dedicated appointments page.
+4. Open **Cases** from the patient workspace. Confirm the compact patient identity card, select a case from the horizontal case list, or open **New case**.
+5. Update case details and status together with **Save case**; the change is recorded as one operation.
+6. Upload, categorize, preview, or download case images.
+7. Confirm carefully before deleting an image; deleted image records cannot be opened afterward.
+8. Select **Mark complete** in the waiting queue when the visit is finished. Schedule and manage future appointments from the dedicated appointments page.
 
 ## Administrator Workflow
 

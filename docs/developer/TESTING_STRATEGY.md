@@ -104,7 +104,7 @@ Environment source policy:
   - `PatientServiceImplTest` for service behavior, conflict paths, role-scoped assignment/search/pagination logic, and patient mutation audit emission
   - `AppointmentServiceImplTest` for scheduling conflicts, role-scoped upcoming/checked-in queues, valid visit transitions, and appointment mutation audit emission
   - `AuditEventServiceImplTest` for actor resolution and event persistence behavior
-  - `MedicalCaseServiceImplTest` for case mutation audit event emission
+  - `MedicalCaseServiceImplTest` for atomic case detail/status updates and mutation audit event emission
   - `MedicalImageServiceImplTest` for image upload/delete audit event emission
 - Frontend:
   - `auth.service.spec.ts` for login/register/token behavior
@@ -118,7 +118,7 @@ Environment source policy:
   - `dashboard-page.component.spec.ts` for patient visibility, role-specific actions, and upcoming appointments rendering
   - `patients-page.component.spec.ts` for server-backed patient directory behavior and the doctor's checked-in waiting queue
   - `patient-form-page.component.spec.ts` for patient create/edit routes and active-status change confirmation
-  - `patient-cases-page.component.spec.ts` for case workspace create/edit/image upload UI behavior
+  - `patient-cases-page.component.spec.ts` for patient identity, case selection, atomic edit/status save, and image upload behavior
   - `guest.guard.spec.ts`, `internal.guard.spec.ts`, `clinical.guard.spec.ts`, and `admin.guard.spec.ts` for role-based routing behavior
   - `login-page.component.spec.ts` for post-login role-based redirect behavior
   - `i18n.service.spec.ts` for translation behavior and dictionary key parity

@@ -99,6 +99,7 @@ Target contract (future phase):
 - Appointment DTOs carry patient identity (`patientId`, patient number, and display name) to avoid client-side N+1 lookups.
 - Appointment create/reschedule operations reject past times and exact scheduled/checked-in slot conflicts for the patient or assigned doctor.
 - The patient workspace summarizes appointment history but delegates appointment creation to `/appointments?patientId=...`.
+- The case editor sends details and status in one `PUT /api/cases/{id}` operation; the backend persists and audits both atomically.
 - Normal UI removal changes appointment status to `CANCELLED`; the delete endpoint remains an explicit API operation.
 - Expired API sessions are handled centrally by the auth interceptor and redirected to sign-in with an expiry reason.
 
