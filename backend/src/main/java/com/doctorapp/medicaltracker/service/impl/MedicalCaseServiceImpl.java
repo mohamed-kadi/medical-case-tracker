@@ -152,6 +152,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
             if (caseDetails == null) {
                 return existingCase;
             }
+            CaseStatus previousStatus = existingCase.getStatus();
 
             // validate updates 
             if (caseDetails.getTitle() != null) {
@@ -162,6 +163,13 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
             }
             existingCase.setDescription(caseDetails.getDescription());
             existingCase.setTreatmentPlan(caseDetails.getTreatmentPlan());
+            if (caseDetails.getStatus() != null && caseDetails.getStatus() != previousStatus) {
+                if (!isValidStatusTransition(previousStatus, caseDetails.getStatus())) {
+                    throw new InvalidCaseStatusException(
+                            "Invalid status transition from " + previousStatus + " to " + caseDetails.getStatus());
+                }
+                existingCase.setStatus(caseDetails.getStatus());
+            }
 
             log.info("Updating medical case ID: {}", id);
 
@@ -171,6 +179,13 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
                     savedCase.getId(),
                     "CASE_UPDATED",
                     "titleUpdated=" + (caseDetails.getTitle() != null));
+            if (previousStatus != savedCase.getStatus()) {
+                auditEventService.recordEvent(
+                        AUDIT_ENTITY_TYPE,
+                        savedCase.getId(),
+                        "CASE_STATUS_UPDATED",
+                        "status=" + previousStatus + "->" + savedCase.getStatus());
+            }
             return savedCase;
 
         } catch (MedicalCaseNotFoundException e) {
@@ -187,6 +202,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     }
 
     @Override
+    @Transactional
     public MedicalCase updateCaseStatus(Long id, CaseStatus newStatus) {
         try {
             assertCurrentUserCanModifyCases();
@@ -226,22 +242,7 @@ public class MedicalCaseServiceImpl implements MedicalCaseService {
     }
     
     public boolean isValidStatusTransition(CaseStatus currentStatus, CaseStatus newStatus) {
-        if (currentStatus == newStatus) {
-            return true;
-        }
-        switch (currentStatus) {
-            case OPEN:
-            // from OPEN, we can only move to IN_PROGRESS 
-            return newStatus == CaseStatus.IN_PROGRESS;
-            case IN_PROGRESS:
-                return newStatus == CaseStatus.RESOLVED;
-            case RESOLVED:
-                return newStatus == CaseStatus.CLOSED;
-            case CLOSED:
-                return false;
-            default:
-                return false;
-        }
+        return currentStatus != null && newStatus != null;
     }
 
     @Override

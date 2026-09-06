@@ -102,6 +102,33 @@ class MedicalCaseServiceImplTest {
     }
 
     @Test
+    void updateCase_savesDetailsAndDirectStatusChangeAtomically() {
+        SecurityContextHolder.getContext()
+                .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
+
+        Patient patient = patientWithId(3L);
+        MedicalCase existing = new MedicalCase();
+        existing.setId(8L);
+        existing.setPatient(patient);
+        existing.setTitle("Initial assessment");
+        existing.setStatus(CaseStatus.OPEN);
+        MedicalCase changes = new MedicalCase();
+        changes.setTitle("Initial assessment updated");
+        changes.setDescription("Improving");
+        changes.setStatus(CaseStatus.RESOLVED);
+
+        when(medicalCaseRepository.findByIdWithPatient(8L)).thenReturn(Optional.of(existing));
+        when(medicalCaseRepository.save(any(MedicalCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MedicalCase updated = medicalCaseService.updateCase(8L, changes);
+
+        assertEquals("Initial assessment updated", updated.getTitle());
+        assertEquals(CaseStatus.RESOLVED, updated.getStatus());
+        verify(auditEventService).recordEvent(
+                eq("MEDICAL_CASE"), eq(8L), eq("CASE_STATUS_UPDATED"), contains("OPEN->RESOLVED"));
+    }
+
+    @Test
     void deleteCase_recordsAuditEvent() {
         SecurityContextHolder.getContext()
                 .setAuthentication(new TestingAuthenticationToken("doctorOne", "n/a", "ROLE_DOCTOR"));
