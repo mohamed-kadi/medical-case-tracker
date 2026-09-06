@@ -27,6 +27,7 @@ import com.doctorapp.medicaltracker.exception.PatientNotFoundException;
 import com.doctorapp.medicaltracker.exception.AppointmentNotFoundException;
 import com.doctorapp.medicaltracker.exception.AppointmentConflictException;
 import com.doctorapp.medicaltracker.exception.BackupOperationException;
+import com.doctorapp.medicaltracker.exception.PrescriptionNotFoundException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
 import lombok.RequiredArgsConstructor;
@@ -100,6 +101,11 @@ public class GlobalExceptionHandler {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(PrescriptionNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handlePrescriptionNotFound(PrescriptionNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
     }
 
 

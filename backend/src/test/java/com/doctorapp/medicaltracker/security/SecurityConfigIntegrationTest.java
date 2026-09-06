@@ -203,6 +203,33 @@ class SecurityConfigIntegrationTest {
     }
 
     @Test
+    void prescriptionsEndpointShouldRejectAnonymousAccess() throws Exception {
+        mockMvc.perform(get("/api/prescriptions/cases/1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "doctorUser", roles = "DOCTOR")
+    void prescriptionsEndpointShouldAllowDoctorRole() throws Exception {
+        mockMvc.perform(get("/api/prescriptions/cases/1"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "staffUser", roles = "FRONT_DESK")
+    void prescriptionsEndpointShouldRejectFrontDeskRole() throws Exception {
+        mockMvc.perform(get("/api/prescriptions/cases/1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "adminUser", roles = "ADMIN")
+    void prescriptionsEndpointShouldRejectAdminRole() throws Exception {
+        mockMvc.perform(get("/api/prescriptions/cases/1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(username = "adminUser", roles = "ADMIN")
     void imagesEndpointShouldRejectAdminRole() throws Exception {
         mockMvc.perform(get("/api/images/case/1"))
