@@ -1,8 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Observable, of, switchMap } from 'rxjs';
 
 import { Patient } from '../../core/models/patient.model';
 import { PatientService } from '../../core/services/patient.service';
@@ -13,11 +14,15 @@ import { ImageCategory, IMAGE_CATEGORIES, MedicalImage } from '../../core/models
 import { ImageService } from '../../core/services/image.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
+import { Prescription, PrescriptionItem, PrescriptionUpsertRequest } from '../../core/models/prescription.model';
+import { PrescriptionService } from '../../core/services/prescription.service';
+import { AuthService } from '../../core/services/auth.service';
+import { LocalizedDatePipe } from '../../shared/localized-date.pipe';
 
 @Component({
   selector: 'app-patient-cases-page',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, StatusLabelPipe],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, StatusLabelPipe, LocalizedDatePipe],
   template: `
     <section class="cases-shell">
       <header class="cases-header">
@@ -139,6 +144,190 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
 
             <hr />
 
+            <section class="prescriptions-section">
+              <header class="section-header">
+                <div>
+                  <h3>{{ i18n.t('cases.prescriptions.title') }}</h3>
+                  <p>{{ i18n.t('cases.prescriptions.description') }}</p>
+                </div>
+                <button type="button" *ngIf="canCreatePrescription" (click)="startNewPrescription()">
+                  {{ i18n.t('cases.prescriptions.new') }}
+                </button>
+              </header>
+
+              <p class="feedback error" *ngIf="prescriptionErrorMessage" role="alert">{{ prescriptionErrorMessage }}</p>
+              <p class="feedback success" *ngIf="prescriptionSuccessMessage" role="status">{{ prescriptionSuccessMessage }}</p>
+              <p class="loading" *ngIf="isLoadingPrescriptions">{{ i18n.t('cases.prescriptions.loading') }}</p>
+
+              <div class="prescription-list" *ngIf="prescriptions.length > 0; else noPrescriptions">
+                <article class="prescription-card" *ngFor="let prescription of prescriptions; trackBy: trackByPrescriptionId">
+                  <header>
+                    <div>
+                      <strong>{{ prescription.prescriptionNumber || i18n.t('cases.prescriptions.draftNumber') }}</strong>
+                      <small>{{ (prescription.issuedAt || prescription.createdAt) | localizedDate: 'medium' }}</small>
+                    </div>
+                    <span class="prescription-status" [class]="'prescription-status ' + prescription.status.toLowerCase()">
+                      {{ prescription.status | statusLabel: 'prescriptions' }}
+                    </span>
+                  </header>
+                  <p>{{ prescription.items.length }} {{ i18n.t('cases.prescriptions.medications') }}</p>
+                  <small class="medication-summary">{{ prescription.items[0].medicationName || '-' }}</small>
+                  <div class="prescription-actions">
+                    <button type="button" class="secondary" (click)="viewPrescription(prescription)">
+                      {{ i18n.t('cases.prescriptions.view') }}
+                    </button>
+                    <button type="button" class="secondary" *ngIf="prescription.status === 'DRAFT'" (click)="editPrescriptionDraft(prescription)">
+                      {{ i18n.t('cases.prescriptions.editDraft') }}
+                    </button>
+                    <button type="button" class="secondary" *ngIf="prescription.status === 'DRAFT'" (click)="deletePrescriptionDraft(prescription.id)">
+                      {{ i18n.t('cases.prescriptions.deleteDraft') }}
+                    </button>
+                    <button type="button" class="secondary" *ngIf="prescription.status === 'ISSUED'" (click)="printPrescription(prescription)" [disabled]="isPrintingPrescriptionId === prescription.id">
+                      {{ isPrintingPrescriptionId === prescription.id ? i18n.t('cases.prescriptions.printing') : i18n.t('cases.prescriptions.print') }}
+                    </button>
+                    <button type="button" class="secondary" *ngIf="prescription.status === 'ISSUED'" (click)="beginVoidPrescription(prescription.id)">
+                      {{ i18n.t('cases.prescriptions.void') }}
+                    </button>
+                  </div>
+                  <div class="void-form" *ngIf="voidingPrescriptionId === prescription.id">
+                    <label>
+                      {{ i18n.t('cases.prescriptions.voidReason') }}
+                      <input type="text" [value]="voidReason" (input)="voidReason = $any($event.target).value" />
+                    </label>
+                    <button type="button" (click)="voidPrescription(prescription.id)" [disabled]="!voidReason.trim()">
+                      {{ i18n.t('cases.prescriptions.confirmVoid') }}
+                    </button>
+                    <button type="button" class="secondary" (click)="cancelVoidPrescription()">{{ i18n.t('cases.prescriptions.cancel') }}</button>
+                  </div>
+                  <p class="void-reason" *ngIf="prescription.status === 'VOIDED'">
+                    {{ i18n.t('cases.prescriptions.voidReason') }}: {{ prescription.voidReason }}
+                  </p>
+                </article>
+              </div>
+              <ng-template #noPrescriptions>
+                <p *ngIf="!isLoadingPrescriptions">{{ i18n.t('cases.prescriptions.empty') }}</p>
+              </ng-template>
+
+              <form class="prescription-editor" *ngIf="prescriptionEditorOpen" [formGroup]="prescriptionForm" (ngSubmit)="savePrescriptionDraft()" novalidate>
+                <header class="section-header">
+                  <div>
+                    <h3>{{ activePrescription ? i18n.t('cases.prescriptions.editTitle') : i18n.t('cases.prescriptions.createTitle') }}</h3>
+                    <p>{{ i18n.t('cases.prescriptions.headerHelp') }}</p>
+                  </div>
+                  <button type="button" class="secondary" (click)="prescriptionEditorOpen = false">{{ i18n.t('cases.prescriptions.cancel') }}</button>
+                </header>
+
+                <fieldset class="prescriber-fields">
+                  <legend>{{ i18n.t('cases.prescriptions.prescriber') }}</legend>
+                  <label>
+                    {{ i18n.t('cases.prescriptions.prescriberName') }}
+                    <input type="text" formControlName="prescriberName" [attr.aria-invalid]="isPrescriptionControlInvalid('prescriberName')" />
+                    <small class="form-error" *ngIf="isPrescriptionControlInvalid('prescriberName')">{{ i18n.t('common.required') }}</small>
+                  </label>
+                  <label>
+                    {{ i18n.t('cases.prescriptions.prescriberTitle') }}
+                    <input type="text" formControlName="prescriberTitle" [attr.aria-invalid]="isPrescriptionControlInvalid('prescriberTitle')" />
+                    <small class="form-error" *ngIf="isPrescriptionControlInvalid('prescriberTitle')">{{ i18n.t('common.required') }}</small>
+                  </label>
+                  <label>{{ i18n.t('cases.prescriptions.professionalId') }}<input type="text" formControlName="professionalId" /></label>
+                  <label>{{ i18n.t('cases.prescriptions.practiceName') }}<input type="text" formControlName="practiceName" /></label>
+                  <label class="wide-field">
+                    {{ i18n.t('cases.prescriptions.practiceAddress') }}
+                    <input type="text" formControlName="practiceAddress" [attr.aria-invalid]="isPrescriptionControlInvalid('practiceAddress')" />
+                    <small class="form-error" *ngIf="isPrescriptionControlInvalid('practiceAddress')">{{ i18n.t('common.required') }}</small>
+                  </label>
+                  <label>{{ i18n.t('cases.prescriptions.practicePhone') }}<input type="text" formControlName="practicePhone" /></label>
+                </fieldset>
+
+                <fieldset formArrayName="items" class="medication-lines">
+                  <legend>{{ i18n.t('cases.prescriptions.medicationLines') }}</legend>
+                  <article class="medication-line" *ngFor="let item of prescriptionItems.controls; let index = index" [formGroupName]="index">
+                    <header>
+                      <strong>{{ i18n.t('cases.prescriptions.medication') }} {{ index + 1 }}</strong>
+                      <button type="button" class="secondary" (click)="removePrescriptionItem(index)" [disabled]="prescriptionItems.length === 1">
+                        {{ i18n.t('cases.prescriptions.removeMedication') }}
+                      </button>
+                    </header>
+                    <div class="medication-grid">
+                      <label class="wide-field">
+                        {{ i18n.t('cases.prescriptions.medicationName') }}
+                        <input type="text" formControlName="medicationName" [attr.aria-invalid]="isPrescriptionItemNameInvalid(index)" />
+                        <small class="form-error" *ngIf="isPrescriptionItemNameInvalid(index)">{{ i18n.t('common.required') }}</small>
+                      </label>
+                      <label>{{ i18n.t('cases.prescriptions.strength') }}<input type="text" formControlName="strength" /></label>
+                      <label>{{ i18n.t('cases.prescriptions.form') }}<input type="text" formControlName="pharmaceuticalForm" /></label>
+                      <label>{{ i18n.t('cases.prescriptions.dose') }}<input type="text" formControlName="dose" /></label>
+                      <label>{{ i18n.t('cases.prescriptions.route') }}<input type="text" formControlName="route" /></label>
+                      <label>{{ i18n.t('cases.prescriptions.frequency') }}<input type="text" formControlName="frequency" /></label>
+                      <label>{{ i18n.t('cases.prescriptions.duration') }}<input type="text" formControlName="duration" /></label>
+                      <label>{{ i18n.t('cases.prescriptions.quantity') }}<input type="text" formControlName="quantity" /></label>
+                      <label class="wide-field">{{ i18n.t('cases.prescriptions.instructions') }}<input type="text" formControlName="instructions" /></label>
+                    </div>
+                  </article>
+                  <button type="button" class="secondary" (click)="addPrescriptionItem()">{{ i18n.t('cases.prescriptions.addMedication') }}</button>
+                </fieldset>
+
+                <label>
+                  {{ i18n.t('cases.prescriptions.generalInstructions') }}
+                  <textarea rows="3" formControlName="generalInstructions"></textarea>
+                </label>
+                <p class="required-help">{{ i18n.t('cases.prescriptions.requiredHelp') }}</p>
+                <div class="editor-actions">
+                  <button type="submit" [disabled]="isSavingPrescription">
+                    {{ isSavingPrescription ? i18n.t('cases.prescriptions.saving') : i18n.t('cases.prescriptions.saveDraft') }}
+                  </button>
+                  <button type="button" class="issue-action" (click)="issuePrescription()" [disabled]="isSavingPrescription">
+                    {{ i18n.t('cases.prescriptions.issueAndPrint') }}
+                  </button>
+                </div>
+              </form>
+
+              <details class="prescription-history" *ngIf="previousPrescriptionHistory.length > 0">
+                <summary>{{ i18n.t('cases.prescriptions.patientHistory') }} ({{ previousPrescriptionHistory.length }})</summary>
+                <article *ngFor="let prescription of previousPrescriptionHistory; trackBy: trackByPrescriptionId">
+                  <span><strong>{{ prescription.prescriptionNumber }}</strong> · {{ prescription.caseTitle }}</span>
+                  <span>{{ prescription.issuedAt | localizedDate: 'date' }} · {{ prescription.status | statusLabel: 'prescriptions' }}</span>
+                  <span class="history-actions">
+                    <button type="button" class="secondary" (click)="viewPrescription(prescription)">{{ i18n.t('cases.prescriptions.view') }}</button>
+                    <button type="button" class="secondary" *ngIf="prescription.status === 'ISSUED'" (click)="printPrescription(prescription)">{{ i18n.t('cases.prescriptions.print') }}</button>
+                  </span>
+                </article>
+              </details>
+
+              <section class="prescription-detail" *ngIf="viewingPrescription as prescription" aria-labelledby="prescription-detail-title">
+                <header class="section-header">
+                  <div>
+                    <h3 id="prescription-detail-title">{{ prescription.prescriptionNumber || i18n.t('cases.prescriptions.draftNumber') }}</h3>
+                    <p>{{ prescription.caseTitle }} · {{ (prescription.issuedAt || prescription.createdAt) | localizedDate: 'medium' }}</p>
+                  </div>
+                  <span class="prescription-status" [class]="'prescription-status ' + prescription.status.toLowerCase()">
+                    {{ prescription.status | statusLabel: 'prescriptions' }}
+                  </span>
+                </header>
+                <div class="prescription-detail-meta">
+                  <span><small>{{ i18n.t('cases.patient.label') }}</small><strong>{{ prescription.patientName }}</strong></span>
+                  <span><small>{{ i18n.t('cases.prescriptions.prescriberName') }}</small><strong>{{ prescription.prescriberName }}</strong></span>
+                  <span><small>{{ i18n.t('cases.prescriptions.practiceName') }}</small><strong>{{ prescription.practiceName || '-' }}</strong></span>
+                </div>
+                <ol class="prescription-detail-items">
+                  <li *ngFor="let item of prescription.items">
+                    <strong>{{ item.medicationName }}<span *ngIf="item.strength"> — {{ item.strength }}</span><span *ngIf="item.pharmaceuticalForm">, {{ item.pharmaceuticalForm }}</span></strong>
+                    <span>{{ item.dose || '-' }}<span *ngIf="item.route"> · {{ item.route }}</span><span *ngIf="item.frequency"> · {{ item.frequency }}</span><span *ngIf="item.duration"> · {{ item.duration }}</span></span>
+                    <span *ngIf="item.quantity">{{ i18n.t('cases.prescriptions.quantity') }}: {{ item.quantity }}</span>
+                    <span *ngIf="item.instructions">{{ item.instructions }}</span>
+                  </li>
+                </ol>
+                <p *ngIf="prescription.generalInstructions"><strong>{{ i18n.t('cases.prescriptions.generalInstructions') }}:</strong> {{ prescription.generalInstructions }}</p>
+                <p class="void-reason" *ngIf="prescription.status === 'VOIDED'"><strong>{{ i18n.t('cases.prescriptions.voidReason') }}:</strong> {{ prescription.voidReason }}</p>
+                <div class="prescription-actions">
+                  <button type="button" *ngIf="prescription.status === 'ISSUED'" (click)="printPrescription(prescription)">{{ i18n.t('cases.prescriptions.print') }}</button>
+                  <button type="button" class="secondary" (click)="viewingPrescription = null">{{ i18n.t('cases.prescriptions.closeDetails') }}</button>
+                </div>
+              </section>
+            </section>
+
+            <hr />
+
             <h3>{{ i18n.t('cases.images.title') }}</h3>
             <label class="image-filter">
               {{ i18n.t('cases.images.filter') }}
@@ -218,6 +407,41 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
           <ng-template #noSelection>
             <p>{{ i18n.t('cases.editor.empty') }}</p>
           </ng-template>
+        </article>
+
+        <article class="prescription-print-sheet" *ngIf="prescriptionForPrint as prescription" aria-hidden="true">
+          <header>
+            <div>
+              <h1>{{ prescription.practiceName || prescription.prescriberName }}</h1>
+              <strong>{{ prescription.prescriberName }}</strong>
+              <p>{{ prescription.prescriberTitle }}<span *ngIf="prescription.professionalId"> · {{ prescription.professionalId }}</span></p>
+              <p>{{ prescription.practiceAddress }}</p>
+              <p *ngIf="prescription.practicePhone">{{ prescription.practicePhone }}</p>
+            </div>
+            <div class="print-reference">
+              <strong>{{ i18n.t('cases.prescriptions.printTitle') }}</strong>
+              <span>{{ prescription.prescriptionNumber }}</span>
+              <span>{{ prescription.issuedAt | localizedDate: 'date' }}</span>
+            </div>
+          </header>
+          <section class="print-patient">
+            <span><b>{{ i18n.t('cases.patient.label') }}:</b> {{ prescription.patientName }}</span>
+            <span><b>{{ i18n.t('cases.patient.number') }}:</b> {{ prescription.patientNumber || '-' }}</span>
+            <span><b>{{ i18n.t('patientWorkspace.summary.dob') }}:</b> {{ prescription.patientDateOfBirth ? (prescription.patientDateOfBirth | localizedDate: 'date') : '-' }}</span>
+          </section>
+          <h2>℞</h2>
+          <ol>
+            <li *ngFor="let item of prescription.items">
+              <strong>{{ item.medicationName }}<span *ngIf="item.strength"> — {{ item.strength }}</span><span *ngIf="item.pharmaceuticalForm">, {{ item.pharmaceuticalForm }}</span></strong>
+              <p>{{ item.dose }}<span *ngIf="item.route"> · {{ item.route }}</span><span *ngIf="item.frequency"> · {{ item.frequency }}</span><span *ngIf="item.duration"> · {{ item.duration }}</span></p>
+              <p *ngIf="item.quantity">{{ i18n.t('cases.prescriptions.quantity') }}: {{ item.quantity }}</p>
+              <p *ngIf="item.instructions">{{ item.instructions }}</p>
+            </li>
+          </ol>
+          <p class="print-instructions" *ngIf="prescription.generalInstructions">{{ prescription.generalInstructions }}</p>
+          <footer>
+            <span>{{ i18n.t('cases.prescriptions.signatureStamp') }}</span>
+          </footer>
         </article>
     </section>
   `,
@@ -452,6 +676,15 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       min-height: 4rem;
     }
 
+    input[aria-invalid='true'] {
+      border-color: var(--danger);
+    }
+
+    .form-error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
     button {
       width: fit-content;
       padding: 0.45rem 0.65rem;
@@ -466,6 +699,200 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
     button:disabled {
       opacity: 0.7;
       cursor: wait;
+    }
+
+    .prescriptions-section {
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.25rem 0;
+    }
+
+    .prescription-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      gap: 0.6rem;
+    }
+
+    .prescription-card {
+      display: grid;
+      gap: 0.45rem;
+      padding: 0.75rem;
+      border: 1px solid var(--surface-strong);
+      border-radius: 0.75rem;
+      background: var(--surface);
+    }
+
+    .prescription-card > header,
+    .medication-line > header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+
+    .prescription-card > header > div {
+      display: grid;
+      gap: 0.12rem;
+    }
+
+    .prescription-card p {
+      margin: 0;
+    }
+
+    .medication-summary,
+    .prescription-card header small,
+    .void-reason,
+    .required-help {
+      color: var(--muted);
+    }
+
+    .prescription-status {
+      padding: 0.2rem 0.45rem;
+      border-radius: 999px;
+      background: var(--surface-elevated);
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .prescription-status.issued {
+      background: color-mix(in srgb, var(--success) 16%, var(--surface));
+      color: var(--success);
+    }
+
+    .prescription-status.voided {
+      background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+      color: var(--danger);
+    }
+
+    .prescription-actions,
+    .editor-actions,
+    .void-form {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .void-form label {
+      flex: 1 1 14rem;
+    }
+
+    .prescription-editor {
+      padding: 0.9rem;
+      border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--surface-strong));
+      border-radius: 0.8rem;
+      background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+    }
+
+    fieldset {
+      min-width: 0;
+      margin: 0;
+      padding: 0.75rem;
+      border: 1px solid var(--surface-strong);
+      border-radius: 0.7rem;
+    }
+
+    legend {
+      padding: 0 0.35rem;
+      color: var(--ink);
+      font-size: 0.84rem;
+      font-weight: 800;
+    }
+
+    .prescriber-fields,
+    .medication-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.55rem;
+    }
+
+    .wide-field {
+      grid-column: span 2;
+    }
+
+    .medication-lines,
+    .medication-line {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .medication-line {
+      padding: 0.65rem;
+      border-radius: 0.6rem;
+      background: var(--surface-elevated);
+    }
+
+    .issue-action {
+      border-color: color-mix(in srgb, var(--success) 55%, var(--surface-strong));
+      background: color-mix(in srgb, var(--success) 15%, var(--surface));
+    }
+
+    .prescription-history {
+      border-top: 1px solid var(--surface-strong);
+      padding-top: 0.7rem;
+    }
+
+    .prescription-history summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .prescription-history article {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 0.7rem;
+      margin-top: 0.45rem;
+      padding: 0.55rem;
+      border: 1px solid var(--surface-strong);
+      border-radius: 0.55rem;
+      background: var(--surface);
+      font-size: 0.8rem;
+    }
+
+    .history-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .prescription-detail {
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.85rem;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--surface-strong));
+      border-radius: 0.75rem;
+      background: var(--surface);
+    }
+
+    .prescription-detail-meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.55rem;
+    }
+
+    .prescription-detail-meta span,
+    .prescription-detail-items li {
+      display: grid;
+      gap: 0.18rem;
+    }
+
+    .prescription-detail-meta small,
+    .prescription-detail-items span {
+      color: var(--muted);
+    }
+
+    .prescription-detail-items {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0;
+      padding-left: 1.4rem;
+    }
+
+    .prescription-print-sheet {
+      display: none;
     }
 
     .image-list {
@@ -561,6 +988,11 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       .create-fields {
         grid-template-columns: 1fr;
       }
+
+      .prescriber-fields,
+      .medication-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 860px) {
@@ -586,6 +1018,102 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       .case-item {
         min-width: min(15rem, 82vw);
       }
+
+      .prescriber-fields,
+      .medication-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .wide-field {
+        grid-column: auto;
+      }
+
+      .prescription-history article {
+        grid-template-columns: 1fr;
+      }
+
+      .prescription-detail-meta {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      .prescription-print-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: grid !important;
+        grid-template-rows: auto auto auto 1fr auto;
+        gap: 1rem;
+        min-height: 100vh;
+        padding: 12mm;
+        background: #fff;
+        color: #111;
+        font-family: Arial, sans-serif;
+      }
+
+      .prescription-print-sheet > header {
+        display: flex;
+        justify-content: space-between;
+        gap: 2rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 2px solid #111;
+      }
+
+      .prescription-print-sheet h1,
+      .prescription-print-sheet p {
+        margin: 0.15rem 0;
+      }
+
+      .print-reference {
+        display: grid;
+        align-content: start;
+        justify-items: end;
+        gap: 0.2rem;
+      }
+
+      .print-patient {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        padding: 0.7rem;
+        border: 1px solid #999;
+      }
+
+      .prescription-print-sheet h2 {
+        font-size: 2rem;
+      }
+
+      .prescription-print-sheet ol {
+        display: grid;
+        align-content: start;
+        gap: 1rem;
+        margin: 0;
+        padding-left: 1.6rem;
+      }
+
+      .prescription-print-sheet li {
+        padding-left: 0.4rem;
+      }
+
+      .print-instructions {
+        padding: 0.7rem;
+        border: 1px solid #bbb;
+      }
+
+      .prescription-print-sheet footer {
+        display: flex;
+        min-height: 35mm;
+        align-items: end;
+        justify-content: end;
+        border-top: 1px solid #aaa;
+        font-weight: 700;
+      }
     }
   `
 })
@@ -593,6 +1121,11 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   patient: Patient | null = null;
   cases: MedicalCase[] = [];
   images: MedicalImage[] = [];
+  prescriptions: Prescription[] = [];
+  patientPrescriptionHistory: Prescription[] = [];
+  activePrescription: Prescription | null = null;
+  viewingPrescription: Prescription | null = null;
+  prescriptionForPrint: Prescription | null = null;
   selectedCaseId: number | null = null;
   selectedUploadFile: File | null = null;
   selectedFileName = '';
@@ -609,6 +1142,14 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   isPreviewLoading = false;
   isDownloadingImageId: number | null = null;
   createFormExpanded = false;
+  prescriptionEditorOpen = false;
+  isLoadingPrescriptions = false;
+  isSavingPrescription = false;
+  isPrintingPrescriptionId: number | null = null;
+  voidingPrescriptionId: number | null = null;
+  voidReason = '';
+  prescriptionErrorMessage = '';
+  prescriptionSuccessMessage = '';
 
   errorMessage = '';
   successMessage = '';
@@ -621,6 +1162,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   readonly createCaseForm;
   readonly caseEditorForm;
   readonly imageUploadForm;
+  readonly prescriptionForm;
 
   private patientId: number | null = null;
   private preferredCaseId: number | null = null;
@@ -633,6 +1175,8 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     private readonly patientService: PatientService,
     private readonly caseService: CaseService,
     private readonly imageService: ImageService,
+    private readonly prescriptionService: PrescriptionService,
+    private readonly authService: AuthService,
     private readonly confirmation: ConfirmationService,
     public readonly i18n: I18nService
   ) {
@@ -652,6 +1196,17 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     this.imageUploadForm = this.formBuilder.nonNullable.group({
       category: ['BEFORE_TREATMENT' as ImageCategory, Validators.required],
       description: ['']
+    });
+
+    this.prescriptionForm = this.formBuilder.nonNullable.group({
+      prescriberName: [this.authService.getCurrentUsername(), Validators.required],
+      prescriberTitle: ['Doctor', Validators.required],
+      professionalId: [''],
+      practiceName: [''],
+      practiceAddress: ['', Validators.required],
+      practicePhone: [''],
+      generalInstructions: [''],
+      items: this.formBuilder.array([this.createPrescriptionItemGroup()])
     });
   }
 
@@ -688,6 +1243,10 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     return image.id;
   }
 
+  trackByPrescriptionId(_index: number, prescription: Prescription): number {
+    return prescription.id;
+  }
+
   isCreateControlInvalid(controlName: 'title'): boolean {
     const control = this.createCaseForm.controls[controlName];
     return control.invalid && control.touched;
@@ -696,6 +1255,18 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   isEditorControlInvalid(controlName: 'title'): boolean {
     const control = this.caseEditorForm.controls[controlName];
     return control.invalid && control.touched;
+  }
+
+  isPrescriptionControlInvalid(
+    controlName: 'prescriberName' | 'prescriberTitle' | 'practiceAddress'
+  ): boolean {
+    const control = this.prescriptionForm.controls[controlName];
+    return control.invalid && control.touched;
+  }
+
+  isPrescriptionItemNameInvalid(index: number): boolean {
+    const control = this.prescriptionItems.at(index)?.controls.medicationName;
+    return Boolean(control?.invalid && control.touched);
   }
 
   selectCase(caseId: number): void {
@@ -716,6 +1287,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
 
     this.closePreview();
     this.loadImages(caseId);
+    this.loadPrescriptions(caseId);
   }
 
   setImageCategoryFilter(filterValue: string): void {
@@ -807,6 +1379,208 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
           this.isSavingCase = false;
         }
       });
+  }
+
+  get prescriptionItems() {
+    return this.prescriptionForm.controls.items;
+  }
+
+  get canCreatePrescription(): boolean {
+    return this.selectedCase?.status === 'OPEN' || this.selectedCase?.status === 'IN_PROGRESS';
+  }
+
+  get previousPrescriptionHistory(): Prescription[] {
+    return this.patientPrescriptionHistory.filter(
+      (prescription) => prescription.caseId !== this.selectedCaseId && prescription.status !== 'DRAFT'
+    );
+  }
+
+  startNewPrescription(): void {
+    if (!this.canCreatePrescription) {
+      return;
+    }
+    this.activePrescription = null;
+    const previous = this.prescriptions[0] ?? this.patientPrescriptionHistory[0] ?? null;
+    this.prescriptionForm.reset({
+      prescriberName: previous?.prescriberName || this.authService.getCurrentUsername(),
+      prescriberTitle: previous?.prescriberTitle || 'Doctor',
+      professionalId: previous?.professionalId || '',
+      practiceName: previous?.practiceName || '',
+      practiceAddress: previous?.practiceAddress || '',
+      practicePhone: previous?.practicePhone || '',
+      generalInstructions: ''
+    });
+    this.prescriptionItems.clear();
+    this.prescriptionItems.push(this.createPrescriptionItemGroup());
+    this.prescriptionEditorOpen = true;
+    this.prescriptionErrorMessage = '';
+    this.prescriptionSuccessMessage = '';
+  }
+
+  editPrescriptionDraft(prescription: Prescription): void {
+    if (prescription.status !== 'DRAFT') {
+      return;
+    }
+    this.activePrescription = prescription;
+    this.prescriptionForm.patchValue({
+      prescriberName: prescription.prescriberName,
+      prescriberTitle: prescription.prescriberTitle,
+      professionalId: prescription.professionalId ?? '',
+      practiceName: prescription.practiceName ?? '',
+      practiceAddress: prescription.practiceAddress,
+      practicePhone: prescription.practicePhone ?? '',
+      generalInstructions: prescription.generalInstructions ?? ''
+    });
+    this.prescriptionItems.clear();
+    prescription.items.forEach((item) => this.prescriptionItems.push(this.createPrescriptionItemGroup(item)));
+    if (this.prescriptionItems.length === 0) {
+      this.prescriptionItems.push(this.createPrescriptionItemGroup());
+    }
+    this.prescriptionEditorOpen = true;
+    this.prescriptionErrorMessage = '';
+    this.prescriptionSuccessMessage = '';
+  }
+
+  viewPrescription(prescription: Prescription): void {
+    this.viewingPrescription = prescription;
+  }
+
+  addPrescriptionItem(): void {
+    this.prescriptionItems.push(this.createPrescriptionItemGroup());
+  }
+
+  removePrescriptionItem(index: number): void {
+    if (this.prescriptionItems.length === 1) {
+      return;
+    }
+    this.prescriptionItems.removeAt(index);
+  }
+
+  savePrescriptionDraft(issueAfterSave = false): void {
+    if (this.selectedCaseId == null || this.prescriptionForm.invalid) {
+      this.prescriptionForm.markAllAsTouched();
+      return;
+    }
+    this.isSavingPrescription = true;
+    this.prescriptionErrorMessage = '';
+    this.prescriptionSuccessMessage = '';
+    const request = this.prescriptionRequest();
+    const draftRequest: Observable<Prescription> = this.activePrescription
+      ? this.prescriptionService.updateDraft(this.activePrescription.id, request)
+      : this.prescriptionService.createDraft(this.selectedCaseId, request);
+
+    draftRequest.pipe(
+      switchMap((saved) => issueAfterSave ? this.prescriptionService.issue(saved.id) : of(saved))
+    ).subscribe({
+      next: (saved) => {
+        this.replacePrescription(saved);
+        this.activePrescription = saved.status === 'DRAFT' ? saved : null;
+        this.prescriptionEditorOpen = saved.status === 'DRAFT';
+        this.isSavingPrescription = false;
+        this.prescriptionSuccessMessage = this.i18n.t(
+          issueAfterSave ? 'cases.prescriptions.feedback.issued' : 'cases.prescriptions.feedback.saved'
+        );
+        this.loadPatientPrescriptionHistory();
+        if (issueAfterSave) {
+          this.printPrescription(saved);
+        }
+      },
+      error: (error: unknown) => {
+        this.isSavingPrescription = false;
+        this.prescriptionErrorMessage = this.resolveErrorMessage(error, 'cases.prescriptions.feedback.saveError');
+      }
+    });
+  }
+
+  async issuePrescription(): Promise<void> {
+    if (this.prescriptionForm.invalid) {
+      this.prescriptionForm.markAllAsTouched();
+      return;
+    }
+    const confirmed = await this.confirmation.confirm('cases.prescriptions.issueConfirm', {
+      titleKey: 'cases.prescriptions.issueTitle',
+      confirmKey: 'cases.prescriptions.issueAndPrint'
+    });
+    if (confirmed) {
+      this.savePrescriptionDraft(true);
+    }
+  }
+
+  printPrescription(prescription: Prescription): void {
+    if (prescription.status !== 'ISSUED' || this.isPrintingPrescriptionId != null) {
+      return;
+    }
+    this.isPrintingPrescriptionId = prescription.id;
+    this.prescriptionService.recordPrint(prescription.id).subscribe({
+      next: (printable) => {
+        this.prescriptionForPrint = printable;
+        this.isPrintingPrescriptionId = null;
+        window.setTimeout(() => window.print(), 0);
+      },
+      error: (error: unknown) => {
+        this.isPrintingPrescriptionId = null;
+        this.prescriptionErrorMessage = this.resolveErrorMessage(error, 'cases.prescriptions.feedback.printError');
+      }
+    });
+  }
+
+  beginVoidPrescription(prescriptionId: number): void {
+    this.voidingPrescriptionId = prescriptionId;
+    this.voidReason = '';
+  }
+
+  cancelVoidPrescription(): void {
+    this.voidingPrescriptionId = null;
+    this.voidReason = '';
+  }
+
+  voidPrescription(prescriptionId: number): void {
+    const reason = this.voidReason.trim();
+    if (!reason) {
+      return;
+    }
+    this.prescriptionService.voidPrescription(prescriptionId, reason).subscribe({
+      next: (voided) => {
+        this.replacePrescription(voided);
+        if (this.viewingPrescription?.id === voided.id) {
+          this.viewingPrescription = voided;
+        }
+        this.cancelVoidPrescription();
+        this.loadPatientPrescriptionHistory();
+        this.prescriptionSuccessMessage = this.i18n.t('cases.prescriptions.feedback.voided');
+      },
+      error: (error: unknown) => {
+        this.prescriptionErrorMessage = this.resolveErrorMessage(error, 'cases.prescriptions.feedback.voidError');
+      }
+    });
+  }
+
+  async deletePrescriptionDraft(prescriptionId: number): Promise<void> {
+    const confirmed = await this.confirmation.confirm('cases.prescriptions.deleteConfirm', {
+      titleKey: 'cases.prescriptions.deleteTitle',
+      confirmKey: 'cases.prescriptions.deleteDraft',
+      tone: 'danger'
+    });
+    if (!confirmed) {
+      return;
+    }
+    this.prescriptionService.deleteDraft(prescriptionId).subscribe({
+      next: () => {
+        this.prescriptions = this.prescriptions.filter((item) => item.id !== prescriptionId);
+        if (this.activePrescription?.id === prescriptionId) {
+          this.activePrescription = null;
+          this.prescriptionEditorOpen = false;
+        }
+      },
+      error: (error: unknown) => {
+        this.prescriptionErrorMessage = this.resolveErrorMessage(error, 'cases.prescriptions.feedback.deleteError');
+      }
+    });
+  }
+
+  @HostListener('window:afterprint')
+  clearPrintedPrescription(): void {
+    this.prescriptionForPrint = null;
   }
 
   onFileSelected(event: Event): void {
@@ -923,6 +1697,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
       next: (patient) => {
         this.patient = patient;
         this.isLoadingPatient = false;
+        this.loadPatientPrescriptionHistory();
       },
       error: () => {
         this.errorMessage = this.i18n.t('cases.feedback.patientError');
@@ -981,6 +1756,88 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
         this.isLoadingImages = false;
       }
     });
+  }
+
+  private loadPrescriptions(caseId: number): void {
+    this.isLoadingPrescriptions = true;
+    this.prescriptionErrorMessage = '';
+    this.prescriptionService.getByCaseId(caseId).subscribe({
+      next: (prescriptions) => {
+        this.prescriptions = prescriptions;
+        this.activePrescription = null;
+        this.viewingPrescription = null;
+        this.prescriptionEditorOpen = false;
+        this.isLoadingPrescriptions = false;
+      },
+      error: (error: unknown) => {
+        this.prescriptions = [];
+        this.isLoadingPrescriptions = false;
+        this.prescriptionErrorMessage = this.resolveErrorMessage(
+          error,
+          'cases.prescriptions.feedback.loadError'
+        );
+      }
+    });
+  }
+
+  private loadPatientPrescriptionHistory(): void {
+    if (this.patientId == null) {
+      return;
+    }
+    this.prescriptionService.getByPatientId(this.patientId).subscribe({
+      next: (prescriptions) => {
+        this.patientPrescriptionHistory = prescriptions;
+      },
+      error: () => {
+        this.patientPrescriptionHistory = [];
+      }
+    });
+  }
+
+  private createPrescriptionItemGroup(item?: PrescriptionItem) {
+    return this.formBuilder.nonNullable.group({
+      medicationName: [item?.medicationName ?? '', Validators.required],
+      strength: [item?.strength ?? ''],
+      pharmaceuticalForm: [item?.pharmaceuticalForm ?? ''],
+      dose: [item?.dose ?? ''],
+      route: [item?.route ?? ''],
+      frequency: [item?.frequency ?? ''],
+      duration: [item?.duration ?? ''],
+      quantity: [item?.quantity ?? ''],
+      instructions: [item?.instructions ?? '']
+    });
+  }
+
+  private prescriptionRequest(): PrescriptionUpsertRequest {
+    const value = this.prescriptionForm.getRawValue();
+    return {
+      type: 'MEDICATION',
+      prescriberName: value.prescriberName.trim(),
+      prescriberTitle: value.prescriberTitle.trim(),
+      professionalId: this.normalizeOptionalValue(value.professionalId),
+      practiceName: this.normalizeOptionalValue(value.practiceName),
+      practiceAddress: value.practiceAddress.trim(),
+      practicePhone: this.normalizeOptionalValue(value.practicePhone),
+      generalInstructions: this.normalizeOptionalValue(value.generalInstructions),
+      items: value.items.map((item) => ({
+        medicationName: item.medicationName.trim(),
+        strength: this.normalizeOptionalValue(item.strength),
+        pharmaceuticalForm: this.normalizeOptionalValue(item.pharmaceuticalForm),
+        dose: this.normalizeOptionalValue(item.dose),
+        route: this.normalizeOptionalValue(item.route),
+        frequency: this.normalizeOptionalValue(item.frequency),
+        duration: this.normalizeOptionalValue(item.duration),
+        quantity: this.normalizeOptionalValue(item.quantity),
+        instructions: this.normalizeOptionalValue(item.instructions)
+      }))
+    };
+  }
+
+  private replacePrescription(updated: Prescription): void {
+    const exists = this.prescriptions.some((prescription) => prescription.id === updated.id);
+    this.prescriptions = exists
+      ? this.prescriptions.map((prescription) => prescription.id === updated.id ? updated : prescription)
+      : [updated, ...this.prescriptions];
   }
 
   private replaceCase(updatedCase: MedicalCase): void {

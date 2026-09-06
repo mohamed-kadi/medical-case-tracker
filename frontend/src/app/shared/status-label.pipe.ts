@@ -2,7 +2,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 
 import { I18nService } from '../core/services/i18n.service';
 
-export type StatusDomain = 'appointments' | 'cases' | 'patients';
+export type StatusDomain = 'appointments' | 'cases' | 'patients' | 'prescriptions';
 
 @Pipe({
   name: 'statusLabel',

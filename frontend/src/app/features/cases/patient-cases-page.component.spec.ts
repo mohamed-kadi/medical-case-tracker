@@ -9,6 +9,8 @@ import { CaseService } from '../../core/services/case.service';
 import { ImageService } from '../../core/services/image.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { ConfirmationService } from '../../shared/confirmation.service';
+import { PrescriptionService } from '../../core/services/prescription.service';
+import { AuthService } from '../../core/services/auth.service';
 
 describe('PatientCasesPageComponent', () => {
   let patientServiceSpy: jasmine.SpyObj<PatientService>;
@@ -16,6 +18,8 @@ describe('PatientCasesPageComponent', () => {
   let imageServiceSpy: jasmine.SpyObj<ImageService>;
   let i18nServiceSpy: jasmine.SpyObj<I18nService>;
   let confirmationSpy: jasmine.SpyObj<ConfirmationService>;
+  let prescriptionServiceSpy: jasmine.SpyObj<PrescriptionService>;
+  let authServiceSpy: jasmine.SpyObj<AuthService>;
 
   const activatedRouteMock = {
     snapshot: {
@@ -39,9 +43,23 @@ describe('PatientCasesPageComponent', () => {
     ]);
     i18nServiceSpy = jasmine.createSpyObj<I18nService>('I18nService', ['t']);
     confirmationSpy = jasmine.createSpyObj<ConfirmationService>('ConfirmationService', ['confirm']);
+    prescriptionServiceSpy = jasmine.createSpyObj<PrescriptionService>('PrescriptionService', [
+      'getByCaseId',
+      'getByPatientId',
+      'createDraft',
+      'updateDraft',
+      'issue',
+      'recordPrint',
+      'voidPrescription',
+      'deleteDraft'
+    ]);
+    authServiceSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getCurrentUsername']);
 
     i18nServiceSpy.t.and.callFake((key: string) => key);
     confirmationSpy.confirm.and.returnValue(Promise.resolve(true));
+    authServiceSpy.getCurrentUsername.and.returnValue('doctorOne');
+    prescriptionServiceSpy.getByCaseId.and.returnValue(of([]));
+    prescriptionServiceSpy.getByPatientId.and.returnValue(of([]));
     patientServiceSpy.getPatientById.and.returnValue(
       of({
         id: 20,
@@ -112,6 +130,8 @@ describe('PatientCasesPageComponent', () => {
         { provide: PatientService, useValue: patientServiceSpy },
         { provide: CaseService, useValue: caseServiceSpy },
         { provide: ImageService, useValue: imageServiceSpy },
+        { provide: PrescriptionService, useValue: prescriptionServiceSpy },
+        { provide: AuthService, useValue: authServiceSpy },
         { provide: I18nService, useValue: i18nServiceSpy },
         { provide: ConfirmationService, useValue: confirmationSpy }
       ]
@@ -127,6 +147,8 @@ describe('PatientCasesPageComponent', () => {
     expect(caseServiceSpy.getCasesByPatientId).toHaveBeenCalledWith(20);
     expect(component.selectedCaseId).toBe(501);
     expect(imageServiceSpy.getImagesByCase).toHaveBeenCalledWith(501, 'ALL');
+    expect(prescriptionServiceSpy.getByCaseId).toHaveBeenCalledWith(501);
+    expect(prescriptionServiceSpy.getByPatientId).toHaveBeenCalledWith(20);
     expect(fixture.nativeElement.querySelector('.patient-identity').textContent).toContain('John Doe');
     expect(fixture.nativeElement.querySelector('.case-list')).not.toBeNull();
   });
@@ -172,6 +194,75 @@ describe('PatientCasesPageComponent', () => {
     });
     expect(caseServiceSpy.updateCaseStatus).not.toHaveBeenCalled();
     expect(component.selectedCase?.status).toBe('IN_PROGRESS');
+  });
+
+  it('creates a structured prescription draft for the selected open case', () => {
+    prescriptionServiceSpy.createDraft.and.returnValue(of({
+      id: 701,
+      caseId: 501,
+      caseTitle: 'Initial assessment',
+      prescriptionNumber: null,
+      type: 'MEDICATION',
+      status: 'DRAFT',
+      prescriberName: 'Dr. Test',
+      prescriberTitle: 'Doctor',
+      practiceAddress: '1 Clinic Street',
+      patientName: 'John Doe',
+      patientNumber: 'MT-20',
+      createdBy: 'doctorOne',
+      createdAt: '2026-09-06T10:00:00',
+      updatedAt: '2026-09-06T10:00:00',
+      items: [{ position: 0, medicationName: 'Amoxicillin', strength: '500 mg' }]
+    }));
+
+    const fixture = TestBed.createComponent(PatientCasesPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.startNewPrescription();
+    component.prescriptionForm.patchValue({
+      prescriberName: 'Dr. Test',
+      prescriberTitle: 'Doctor',
+      practiceAddress: '1 Clinic Street'
+    });
+    component.prescriptionItems.at(0).patchValue({ medicationName: 'Amoxicillin', strength: '500 mg' });
+
+    component.savePrescriptionDraft();
+
+    expect(prescriptionServiceSpy.createDraft).toHaveBeenCalledWith(501, jasmine.objectContaining({
+      prescriberName: 'Dr. Test',
+      practiceAddress: '1 Clinic Street',
+      items: [jasmine.objectContaining({ medicationName: 'Amoxicillin', strength: '500 mg' })]
+    }));
+    expect(component.prescriptions[0].status).toBe('DRAFT');
+  });
+
+  it('opens a prescription in the in-app history detail view', () => {
+    const fixture = TestBed.createComponent(PatientCasesPageComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const prescription = {
+      id: 701,
+      caseId: 501,
+      caseTitle: 'Initial assessment',
+      prescriptionNumber: 'RX-2026-000701',
+      type: 'MEDICATION' as const,
+      status: 'ISSUED' as const,
+      prescriberName: 'Dr. Test',
+      prescriberTitle: 'Doctor',
+      practiceAddress: '1 Clinic Street',
+      patientName: 'John Doe',
+      createdBy: 'doctorOne',
+      issuedAt: '2026-09-06T10:05:00',
+      createdAt: '2026-09-06T10:00:00',
+      updatedAt: '2026-09-06T10:05:00',
+      items: [{ position: 0, medicationName: 'Amoxicillin', strength: '500 mg' }]
+    };
+
+    component.viewPrescription(prescription);
+    fixture.detectChanges();
+
+    expect(component.viewingPrescription).toBe(prescription);
+    expect(fixture.nativeElement.querySelector('.prescription-detail').textContent).toContain('Amoxicillin');
   });
 
   it('uploads image for selected case', () => {
