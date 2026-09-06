@@ -33,9 +33,12 @@ Front desk users cannot see medical history, cases, images, or clinical notes.
 3. Review or update the patient record and medical history.
 4. Open **Cases** from the patient workspace. Confirm the compact patient identity card, select a case from the horizontal case list, or open **New case**.
 5. Update case details and status together with **Save case**; the change is recorded as one operation.
-6. Upload, categorize, preview, or download case images.
-7. Confirm carefully before deleting an image; deleted image records cannot be opened afterward.
-8. Select **Mark complete** in the waiting queue when the visit is finished. Schedule and manage future appointments from the dedicated appointments page.
+6. For an open or in-progress case, open **Prescriptions**, add one or more structured medication lines, and save a draft if it still needs review.
+7. Select **Issue and print** only after confirming the patient, medicines, directions, prescriber details, and practice address. Issuing locks the record and opens the printable paper version with a signature/stamp area.
+8. Reprint an issued prescription from the case or the patient's previous-prescription history. If an issued prescription is incorrect, void it with a reason and create a corrected prescription; issued records cannot be edited or deleted.
+9. Upload, categorize, preview, or download case images.
+10. Confirm carefully before deleting an image; deleted image records cannot be opened afterward.
+11. Select **Mark complete** in the waiting queue when the visit is finished. Schedule and manage future appointments from the dedicated appointments page.
 
 ## Administrator Workflow
 
@@ -55,6 +58,7 @@ A patient portal account shows data only after clinic staff creates a `VERIFIED`
 - Changing an active patient to inactive or archived requires confirmation.
 - Appointment removal in the interface records the appointment as cancelled instead of silently deleting its history.
 - Medical-image deletion requires confirmation.
+- Issued prescriptions are retained in patient history. Voiding keeps the record and requires a reason.
 - Statuses and dates follow the selected application language.
 
 ## Backup and Restore

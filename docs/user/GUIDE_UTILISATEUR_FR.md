@@ -33,9 +33,12 @@ L'accueil ne peut pas consulter les antécédents médicaux, les cas, les images
 3. Consultez ou mettez à jour le dossier et les antécédents médicaux.
 4. Ouvrez **Cas** depuis l'espace patient. Vérifiez la fiche d'identité compacte, sélectionnez un cas dans la liste horizontale ou ouvrez **Nouveau cas**.
 5. Modifiez les détails et le statut ensemble avec **Enregistrer le cas** ; le changement est enregistré en une seule opération.
-6. Chargez, catégorisez, prévisualisez ou téléchargez les images du cas.
-7. Vérifiez attentivement avant de supprimer une image ; une image supprimée ne peut plus être ouverte.
-8. Sélectionnez **Terminer la consultation** dans la file d'attente à la fin de la visite. Planifiez et gérez les futurs rendez-vous depuis la page dédiée.
+6. Pour un cas ouvert ou en cours, ouvrez **Ordonnances**, ajoutez une ou plusieurs lignes de médicament structurées et enregistrez un brouillon s'il doit encore être vérifié.
+7. Sélectionnez **Émettre et imprimer** seulement après avoir vérifié le patient, les médicaments, la posologie, le prescripteur et l'adresse du cabinet. L'émission verrouille l'ordonnance et ouvre la version papier avec un espace de signature/cachet.
+8. Réimprimez une ordonnance émise depuis le cas ou l'historique des ordonnances du patient. Si elle est incorrecte, annulez-la avec un motif puis créez une ordonnance corrigée ; une ordonnance émise ne peut être ni modifiée ni supprimée.
+9. Chargez, catégorisez, prévisualisez ou téléchargez les images du cas.
+10. Vérifiez attentivement avant de supprimer une image ; une image supprimée ne peut plus être ouverte.
+11. Sélectionnez **Terminer la consultation** dans la file d'attente à la fin de la visite. Planifiez et gérez les futurs rendez-vous depuis la page dédiée.
 
 ## Workflow de l'administrateur
 
@@ -55,6 +58,7 @@ Un compte portail affiche des données uniquement après la création par la cli
 - Le passage d'un patient actif au statut inactif ou archivé demande une confirmation.
 - La suppression d'un rendez-vous dans l'interface l'enregistre comme annulé au lieu d'effacer silencieusement son historique.
 - La suppression d'une image médicale demande une confirmation.
+- Les ordonnances émises restent dans l'historique du patient. Leur annulation conserve le dossier et exige un motif.
 - Les statuts et les dates suivent la langue sélectionnée.
 
 ## Sauvegarde et restauration

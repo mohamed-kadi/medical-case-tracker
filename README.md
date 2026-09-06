@@ -8,7 +8,7 @@ Medical Case Tracker is a bilingual clinic operations application for patient in
 - Patient directory with server-side search, status filtering, and pagination
 - Patient registration, printable patient cards, assignments, and lifecycle management
 - Appointment scheduling with patient identity, conflict checks, front-desk check-in, a doctor waiting queue, paginated lists, and an interactive calendar
-- Doctor-only medical cases and protected image upload, preview, download, and deletion
+- Doctor-only medical cases, prescription history/printing, and protected medical-image workflows
 - Verified patient-account linking and a privacy-limited patient portal
 - Admin user provisioning, audit viewer, assignments, backup, and restore
 - English and French UI, API messages, statuses, dates, and accessibility text
@@ -19,7 +19,7 @@ Medical Case Tracker is a bilingual clinic operations application for patient in
 | Role | Primary responsibility |
 | --- | --- |
 | `ADMIN` | Clinic users, patient assignments, audit review, backup and restore |
-| `DOCTOR` | Assigned patients, appointments, medical history, cases, and images |
+| `DOCTOR` | Assigned patients, appointments, medical history, cases, prescriptions, and images |
 | `FRONT_DESK` | Patient identity/contact intake, cards, portal linking, and appointments |
 | `PATIENT` | Read-only access to a verified linked patient summary and upcoming appointments |
 
@@ -116,7 +116,7 @@ CI runs the backend and frontend checks defined in `.github/workflows/ci.yml`.
 | `/patients/new` | Patient registration | Doctor, front desk |
 | `/patients/:id` | Patient card, history, appointments, and case summary | Authorized internal roles |
 | `/patients/:id/edit` | Patient editing and status management | Doctor, front desk |
-| `/patients/:id/cases` | Case and medical-image workspace | Doctor |
+| `/patients/:id/cases` | Case, prescription, and medical-image workspace | Doctor |
 | `/appointments` | Appointment creation and paginated schedule | Doctor, front desk |
 | `/patient-links` | Verify a portal account against a clinic file | Admin, front desk |
 | `/admin/users` | Internal user provisioning | Admin |
@@ -130,7 +130,7 @@ CI runs the backend and frontend checks defined in `.github/workflows/ci.yml`.
 - Authentication: `/api/auth/**`
 - Patients: `/api/patients/**`, including `/api/patients/page`
 - Appointments: `/api/appointments/**`, including bounded `/upcoming`, paginated `/upcoming/page`, and role-scoped `/checked-in`
-- Cases and images: `/api/cases/**`, `/api/images/**`
+- Cases, prescriptions, and images: `/api/cases/**`, `/api/prescriptions/**`, `/api/images/**`
 - Patient portal and account linking: `/api/patient-portal/**`, `/api/patient-account-links/**`
 - Administration: `/api/admin/**`
 
@@ -141,7 +141,8 @@ Appointment responses include patient ID, patient number, and patient name. New 
 - Browser authentication tokens are stored in `sessionStorage` and are cleared centrally when a session expires.
 - Public registration creates a portal login only; it never creates or exposes an official clinic patient file.
 - Patient portal access requires an explicit `VERIFIED` account link.
-- Front desk and admin patient views redact clinical fields; cases and images remain doctor-only.
+- Front desk and admin patient views redact clinical fields; cases, prescriptions, and images remain doctor-only.
+- Prescription drafts are editable only while their case is open or in progress. Issued prescriptions are locked, printable, and retained in patient history; voiding requires a reason and does not delete the record.
 - Destructive UI actions require confirmation. Backup restore additionally requires the typed value `RESTORE` and creates a safety backup first.
 - Flyway manages development and production schema changes; Hibernate validates rather than mutates those schemas.
 - Real `.env` files, credentials, and clinic data must never be committed.

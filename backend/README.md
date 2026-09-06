@@ -56,6 +56,7 @@ Migration files:
 - `src/main/resources/db/migration/V1__create_current_schema.sql`
 - `src/main/resources/db/migration/V2__adopt_existing_hibernate_schema.sql`
 - `src/main/resources/db/migration/V3__add_checked_in_appointment_status.sql`
+- `src/main/resources/db/migration/V4__add_prescriptions.sql`
 
 Runtime behavior:
 
@@ -164,6 +165,21 @@ Appointment response and validation rules:
 - The portal does not return clinical notes, medical history, cases, images, appointment notes, or audit data.
 - Public patient registration creates a login account only; clinic staff must verify and link it before patient file data is exposed.
 - Email/phone matching may be used as a staff search aid later, but the backend must only expose portal data through a `VERIFIED` link.
+
+## Prescription API
+
+All prescription endpoints are doctor-only and still enforce the selected patient's assignment boundary.
+
+- `GET /api/prescriptions/cases/{caseId}`: list prescriptions for a case.
+- `GET /api/prescriptions/patients/{patientId}`: list the patient's cross-case prescription history.
+- `POST /api/prescriptions/cases/{caseId}`: create a structured draft for an `OPEN` or `IN_PROGRESS` case.
+- `PUT /api/prescriptions/{id}`: update a draft.
+- `POST /api/prescriptions/{id}/issue`: assign an `RX-{year}-{id}` reference and lock the prescription.
+- `POST /api/prescriptions/{id}/print`: record a print event for an issued prescription.
+- `POST /api/prescriptions/{id}/void`: retain an issued prescription as voided with a required reason.
+- `DELETE /api/prescriptions/{id}`: delete a draft only.
+
+Issued records preserve patient identity and prescriber/practice details as snapshots. Create, update, issue, print, void, and draft deletion actions are written to the audit trail. The current print workflow produces a paper prescription with a signature/stamp area; clinic staff should validate the final wording and layout with the prescribing doctor before production use.
 
 ## Patient Account Link API
 

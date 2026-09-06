@@ -10,7 +10,7 @@ Angular frontend for Medical Case Tracker.
 - Patient workspace with printable card, history, appointment summary, and case summary
 - Search-first appointment scheduler with patient deep links, standard reason choices, optional patient-reported intake checklist, front-desk check-in, and a collapsible paginated schedule
 - Interactive upcoming-appointment calendar with colored dates and patient details
-- Doctor-only case and medical-image workspace with compact patient identity, horizontal case selection, and atomic detail/status saves
+- Doctor-only case workspace with compact patient identity, horizontal case selection, atomic detail/status saves, structured prescription drafting/history/printing, and medical images
 - Admin team, assignment, audit, and backup/restore pages
 - Verified account-linking workflow and limited read-only patient portal
 - Responsive navigation drawer and mobile appointment cards

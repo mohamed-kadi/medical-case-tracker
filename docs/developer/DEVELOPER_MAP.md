@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-Medical Case Tracker is a secure full-stack clinic operations platform for patient management, case tracking, imaging workflows, and scheduling with JWT security and bilingual support.
+Medical Case Tracker is a secure full-stack clinic operations platform for patient management, case tracking, prescription records, imaging workflows, and scheduling with JWT security and bilingual support.
 
 ## Canonical Product Description
 
@@ -86,7 +86,7 @@ Target contract (future phase):
 - Patient portal frontend service: `frontend/src/app/core/services/patient-portal.service.ts`
 - Admin backup frontend service: `frontend/src/app/core/services/admin-backup.service.ts`
 - Patient and appointment API services: `frontend/src/app/core/services/patient.service.ts`, `frontend/src/app/core/services/appointment.service.ts`
-- Case and image API services: `frontend/src/app/core/services/case.service.ts`, `frontend/src/app/core/services/image.service.ts`
+- Case, prescription, and image API services: `frontend/src/app/core/services/case.service.ts`, `frontend/src/app/core/services/prescription.service.ts`, `frontend/src/app/core/services/image.service.ts`
 - UI localization: `frontend/src/app/core/services/language.service.ts`, `frontend/src/app/core/services/i18n.service.ts`
 - Shared language selector: `frontend/src/app/shared/language-switcher.component.ts`
 - Shared UI primitives: localized-date/status pipes, page feedback component, and confirmation service in `frontend/src/app/shared`
@@ -100,6 +100,8 @@ Target contract (future phase):
 - Appointment create/reschedule operations reject past times and exact scheduled/checked-in slot conflicts for the patient or assigned doctor.
 - The patient workspace summarizes appointment history but delegates appointment creation to `/appointments?patientId=...`.
 - The case editor sends details and status in one `PUT /api/cases/{id}` operation; the backend persists and audits both atomically.
+- Prescriptions belong to a medical case. Drafts can be edited for `OPEN`/`IN_PROGRESS` cases; issuing snapshots patient and prescriber data, assigns a stable reference, and makes the record immutable.
+- Issued prescriptions can be reprinted with an audit event. Voiding requires a reason and retains the original record in patient history.
 - Normal UI removal changes appointment status to `CANCELLED`; the delete endpoint remains an explicit API operation.
 - Expired API sessions are handled centrally by the auth interceptor and redirected to sign-in with an expiry reason.
 
@@ -110,6 +112,7 @@ Target contract (future phase):
 - Backend admin backup test: `backend/src/test/java/com/doctorapp/medicaltracker/controller/AdminBackupControllerTest.java`
 - Backend security integration tests: `backend/src/test/java/com/doctorapp/medicaltracker/security/SecurityConfigIntegrationTest.java`
 - Backend i18n bundle parity test: `backend/src/test/java/com/doctorapp/medicaltracker/config/LocalizationBundleConsistencyTest.java`
+- Backend prescription tests: `backend/src/test/java/com/doctorapp/medicaltracker/controller/PrescriptionControllerTest.java`, `backend/src/test/java/com/doctorapp/medicaltracker/service/PrescriptionServiceImplTest.java`
 - Backend audit/service tests: `backend/src/test/java/com/doctorapp/medicaltracker/service/AuditEventServiceImplTest.java`, `backend/src/test/java/com/doctorapp/medicaltracker/service/MedicalCaseServiceImplTest.java`, `backend/src/test/java/com/doctorapp/medicaltracker/service/MedicalImageServiceImplTest.java`
 - Frontend audit service test: `frontend/src/app/core/services/audit.service.spec.ts`
 - Frontend service tests: `frontend/src/app/core/services/*.spec.ts`

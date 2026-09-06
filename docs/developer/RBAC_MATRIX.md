@@ -17,6 +17,7 @@ This matrix is the source of truth for current role behavior in the clinic-first
 | View patients (`GET /api/patients/**`) | Yes (all patients, redacted clinical fields) | Yes (assigned only) | Yes (all patients, redacted clinical fields) | No |
 | Create/update patient (`POST/PUT/PATCH/DELETE /api/patients/**`) | No | Yes | Yes | No |
 | Manage cases (`/api/cases/**`) | No | Yes | No | No |
+| Manage prescriptions (`/api/prescriptions/**`) | No | Yes | No | No |
 | Manage images (`/api/images/**`) | No | Yes | No | No |
 | Manage appointments (`/api/appointments/**`) | No | Yes | Yes | No |
 
@@ -31,7 +32,7 @@ This matrix is the source of truth for current role behavior in the clinic-first
 ## Dashboard Intent
 
 - `ADMIN` dashboard: management only (team provisioning + assignment operations).
-- `DOCTOR` dashboard: clinical operations (patients, cases, appointments).
+- `DOCTOR` dashboard: clinical operations (patients, cases, prescriptions, appointments).
 - `FRONT_DESK` dashboard: intake and scheduling support (patients, appointments, patient number/card), with clinical fields hidden.
 - `PATIENT` dashboard: read-only portal for verified linked patient file summary, patient number, assigned contacts, and upcoming appointments.
 
@@ -42,7 +43,7 @@ This matrix is the source of truth for current role behavior in the clinic-first
 - Only `VERIFIED` links expose patient data in the portal.
 - `PENDING` and `REVOKED` links must not expose patient file data.
 - The portal is read-only.
-- The portal does not expose clinical notes, medical history, cases, images, appointment notes, or internal audit data.
+- The portal does not expose clinical notes, medical history, cases, prescriptions, images, appointment notes, or internal audit data.
 - If no verified link exists, the portal shows an unlinked-account state instead of exposing any patient data.
 - Public patient registration creates a portal login only. It must not create a second official clinic patient file.
 - Email/phone matches are search hints for staff review, not authorization rules.
