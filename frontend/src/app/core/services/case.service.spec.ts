@@ -82,4 +82,31 @@ describe('CaseService', () => {
       status: 'IN_PROGRESS'
     });
   });
+
+  it('should update case details and status in one request', () => {
+    service.updateCase(11, {
+      title: 'Post-op review',
+      description: 'Healing well',
+      treatmentPlan: 'Discharge',
+      status: 'RESOLVED'
+    }).subscribe((medicalCase) => {
+      expect(medicalCase.status).toBe('RESOLVED');
+    });
+
+    const request = httpMock.expectOne('http://localhost:8080/api/cases/11');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({
+      title: 'Post-op review',
+      description: 'Healing well',
+      treatmentPlan: 'Discharge',
+      status: 'RESOLVED'
+    });
+    request.flush({
+      id: 11,
+      title: 'Post-op review',
+      description: 'Healing well',
+      treatmentPlan: 'Discharge',
+      status: 'RESOLVED'
+    });
+  });
 });

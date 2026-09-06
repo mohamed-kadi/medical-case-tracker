@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { of, switchMap } from 'rxjs';
 
 import { Patient } from '../../core/models/patient.model';
 import { PatientService } from '../../core/services/patient.service';
@@ -22,10 +21,22 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
   template: `
     <section class="cases-shell">
       <header class="cases-header">
-        <div>
-          <h1>{{ patient ? (patient.firstName + ' ' + patient.lastName) : i18n.t('cases.title') }}</h1>
-          <p *ngIf="patient">{{ patient.patientNumber || '-' }} · {{ patient.email }}</p>
+        <div class="patient-identity" *ngIf="patient; else loadingIdentity">
+          <span class="patient-avatar" aria-hidden="true">{{ patient.firstName.charAt(0) }}{{ patient.lastName.charAt(0) }}</span>
+          <span class="patient-primary">
+            <small>{{ i18n.t('cases.patient.label') }}</small>
+            <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
+          </span>
+          <span class="patient-detail">
+            <small>{{ i18n.t('cases.patient.number') }}</small>
+            <strong>{{ patient.patientNumber || '-' }}</strong>
+          </span>
+          <span class="patient-detail">
+            <small>{{ i18n.t('cases.patient.email') }}</small>
+            <strong>{{ patient.email || i18n.t('cases.patient.notProvided') }}</strong>
+          </span>
         </div>
+        <ng-template #loadingIdentity><p class="loading">{{ i18n.t('cases.loading') }}</p></ng-template>
         <a class="back-link" [routerLink]="patient ? ['/patients', patient.id] : ['/patients']">
           {{ i18n.t('cases.backToPatient') }}
         </a>
@@ -40,39 +51,42 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
           <span>{{ i18n.t('cases.overview.images') }}</span>
           <strong>{{ images.length }}</strong>
         </article>
-        <article class="overview-card">
-          <span>{{ i18n.t('cases.overview.selectedStatus') }}</span>
-          <strong>{{ selectedCase ? (selectedCase.status | statusLabel: 'cases') : '-' }}</strong>
-        </article>
       </section>
 
-      <p class="feedback error" *ngIf="errorMessage">{{ errorMessage }}</p>
-      <p class="feedback success" *ngIf="successMessage">{{ successMessage }}</p>
+      <p class="feedback error" *ngIf="errorMessage" role="alert">{{ errorMessage }}</p>
+      <p class="feedback success" *ngIf="successMessage" role="status">{{ successMessage }}</p>
       <p class="loading" *ngIf="isLoadingPatient || isLoadingCases">{{ i18n.t('cases.loading') }}</p>
 
-      <section class="panel-grid">
-        <article class="panel">
-          <h2>{{ i18n.t('cases.list.title') }}</h2>
+      <section class="panel case-navigation">
+        <header class="section-header">
+          <div>
+            <h2>{{ i18n.t('cases.list.title') }}</h2>
+            <p>{{ i18n.t('cases.list.help') }}</p>
+          </div>
+          <button type="button" class="secondary" (click)="createFormExpanded = !createFormExpanded" [attr.aria-expanded]="createFormExpanded">
+            {{ createFormExpanded ? i18n.t('cases.create.collapse') : i18n.t('cases.create.open') }}
+          </button>
+        </header>
           <div class="case-list" *ngIf="cases.length > 0; else emptyCases">
             <button
               *ngFor="let medicalCase of cases; trackBy: trackByCaseId"
               type="button"
               class="case-item"
               [class.active]="medicalCase.id === selectedCaseId"
+              [attr.aria-pressed]="medicalCase.id === selectedCaseId"
               (click)="selectCase(medicalCase.id)"
             >
               <strong>{{ medicalCase.title }}</strong>
-              <small>{{ medicalCase.status | statusLabel: 'cases' }}</small>
+              <small class="case-status">{{ medicalCase.status | statusLabel: 'cases' }}</small>
             </button>
           </div>
           <ng-template #emptyCases>
             <p>{{ i18n.t('cases.list.empty') }}</p>
           </ng-template>
 
-          <hr />
-
-          <h3>{{ i18n.t('cases.create.title') }}</h3>
-          <form [formGroup]="createCaseForm" (ngSubmit)="createCase()" novalidate>
+          <form class="create-case-form" *ngIf="createFormExpanded" [formGroup]="createCaseForm" (ngSubmit)="createCase()" novalidate>
+            <h3>{{ i18n.t('cases.create.title') }}</h3>
+            <div class="create-fields">
             <label>
               {{ i18n.t('cases.create.titleField') }}
               <input type="text" formControlName="title" />
@@ -85,14 +99,15 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
               {{ i18n.t('cases.create.planField') }}
               <textarea rows="3" formControlName="treatmentPlan"></textarea>
             </label>
+            </div>
             <small *ngIf="isCreateControlInvalid('title')">{{ i18n.t('common.required') }}</small>
             <button type="submit" [disabled]="isCreatingCase">
               {{ isCreatingCase ? i18n.t('cases.create.saving') : i18n.t('cases.create.submit') }}
             </button>
           </form>
-        </article>
+      </section>
 
-        <article class="panel">
+        <article class="panel editor-panel">
           <h2>{{ i18n.t('cases.editor.title') }}</h2>
           <ng-container *ngIf="selectedCase; else noSelection">
             <form [formGroup]="caseEditorForm" (ngSubmit)="saveSelectedCase()" novalidate>
@@ -204,7 +219,6 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
             <p>{{ i18n.t('cases.editor.empty') }}</p>
           </ng-template>
         </article>
-      </section>
     </section>
   `,
   styles: `
@@ -217,14 +231,8 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
     .cases-header {
       display: flex;
       justify-content: space-between;
-      align-items: end;
+      align-items: center;
       gap: 1rem;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(1.7rem, 2.2vw, 2.3rem);
-      line-height: 1.1;
     }
 
     h2,
@@ -232,9 +240,62 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       margin: 0;
     }
 
-    .cases-header p {
-      margin: 0.35rem 0 0;
+    .patient-identity {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--surface-strong));
+      border-radius: 0.85rem;
+      background: color-mix(in srgb, var(--accent) 7%, var(--surface-elevated));
+      box-shadow: var(--elevation-soft);
+    }
+
+    .patient-avatar {
+      width: 2.6rem;
+      height: 2.6rem;
+      flex: 0 0 2.6rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+      color: var(--accent);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .patient-primary,
+    .patient-detail {
+      min-width: 0;
+      display: grid;
+      gap: 0.12rem;
+    }
+
+    .patient-primary {
+      padding-right: 1rem;
+      border-right: 1px solid var(--surface-strong);
+    }
+
+    .patient-primary strong {
+      font-size: 1.05rem;
+    }
+
+    .patient-identity small,
+    .patient-detail small {
       color: var(--muted);
+      font-size: 0.69rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .patient-detail strong {
+      max-width: 19rem;
+      overflow: hidden;
+      font-size: 0.84rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .back-link {
@@ -275,13 +336,6 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       line-height: 1.1;
     }
 
-    .panel-grid {
-      display: grid;
-      grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
-      gap: 1rem;
-      align-items: start;
-    }
-
     .panel {
       border: 1px solid var(--surface-strong);
       background: var(--surface-elevated);
@@ -293,21 +347,41 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       min-width: 0;
     }
 
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .section-header p {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
     .case-list {
-      display: grid;
+      display: flex;
       gap: 0.5rem;
-      max-height: 22rem;
-      overflow: auto;
+      overflow-x: auto;
+      padding: 0.1rem 0 0.35rem;
+      scroll-snap-type: x proximity;
     }
 
     .case-item {
+      flex: 0 0 auto;
+      min-width: 12rem;
+      max-width: 18rem;
       text-align: left;
-      padding: 0.55rem 0.6rem;
+      padding: 0.65rem 0.75rem;
       border-radius: 0.6rem;
       border: 1px solid var(--surface-strong);
       background: var(--surface);
-      display: grid;
-      gap: 0.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.7rem;
+      scroll-snap-align: start;
     }
 
     .case-item.active {
@@ -315,8 +389,30 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       background: color-mix(in srgb, var(--accent) 16%, var(--surface));
     }
 
-    .case-item small {
+    .case-item strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .case-status {
+      flex: 0 0 auto;
+      padding: 0.2rem 0.4rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 12%, var(--surface-elevated));
       color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .create-case-form {
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--surface-strong);
+    }
+
+    .create-fields {
+      display: grid;
+      grid-template-columns: minmax(12rem, 0.75fr) repeat(2, minmax(15rem, 1fr));
+      gap: 0.65rem;
     }
 
     form {
@@ -462,7 +558,7 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
     }
 
     @media (max-width: 1040px) {
-      .panel-grid {
+      .create-fields {
         grid-template-columns: 1fr;
       }
     }
@@ -471,6 +567,24 @@ import { StatusLabelPipe } from '../../shared/status-label.pipe';
       .cases-header {
         align-items: start;
         flex-direction: column;
+      }
+
+      .patient-identity {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .patient-primary {
+        border-right: 0;
+      }
+
+      .section-header {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .case-item {
+        min-width: min(15rem, 82vw);
       }
     }
   `
@@ -494,6 +608,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
   isUploadingImage = false;
   isPreviewLoading = false;
   isDownloadingImageId: number | null = null;
+  createFormExpanded = false;
 
   errorMessage = '';
   successMessage = '';
@@ -641,6 +756,7 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
             description: '',
             treatmentPlan: ''
           });
+          this.createFormExpanded = false;
           this.selectCase(createdCase.id);
           this.successMessage = this.i18n.t('cases.feedback.createSuccess');
           this.isCreatingCase = false;
@@ -667,24 +783,13 @@ export class PatientCasesPageComponent implements OnInit, OnDestroy {
     this.successMessage = '';
 
     const payload = this.caseEditorForm.getRawValue();
-    const nextStatus = payload.status;
-    const shouldUpdateStatus = medicalCase.status !== nextStatus;
-
     this.caseService
       .updateCase(medicalCase.id, {
         title: payload.title.trim(),
         description: this.normalizeOptionalValue(payload.description),
         treatmentPlan: this.normalizeOptionalValue(payload.treatmentPlan),
-        status: nextStatus
+        status: payload.status
       })
-      .pipe(
-        switchMap((updatedCase) => {
-          if (!shouldUpdateStatus) {
-            return of(updatedCase);
-          }
-          return this.caseService.updateCaseStatus(medicalCase.id, nextStatus);
-        })
-      )
       .subscribe({
         next: (updatedCase) => {
           this.replaceCase(updatedCase);

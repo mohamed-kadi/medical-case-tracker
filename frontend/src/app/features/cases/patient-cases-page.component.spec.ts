@@ -77,7 +77,7 @@ describe('PatientCasesPageComponent', () => {
         title: 'Initial assessment updated',
         description: 'Updated',
         treatmentPlan: 'Plan',
-        status: 'OPEN'
+        status: 'IN_PROGRESS'
       })
     );
     caseServiceSpy.updateCaseStatus.and.returnValue(
@@ -127,6 +127,8 @@ describe('PatientCasesPageComponent', () => {
     expect(caseServiceSpy.getCasesByPatientId).toHaveBeenCalledWith(20);
     expect(component.selectedCaseId).toBe(501);
     expect(imageServiceSpy.getImagesByCase).toHaveBeenCalledWith(501, 'ALL');
+    expect(fixture.nativeElement.querySelector('.patient-identity').textContent).toContain('John Doe');
+    expect(fixture.nativeElement.querySelector('.case-list')).not.toBeNull();
   });
 
   it('creates case for the current patient', () => {
@@ -168,7 +170,8 @@ describe('PatientCasesPageComponent', () => {
       treatmentPlan: 'Plan',
       status: 'IN_PROGRESS'
     });
-    expect(caseServiceSpy.updateCaseStatus).toHaveBeenCalledWith(501, 'IN_PROGRESS');
+    expect(caseServiceSpy.updateCaseStatus).not.toHaveBeenCalled();
+    expect(component.selectedCase?.status).toBe('IN_PROGRESS');
   });
 
   it('uploads image for selected case', () => {
